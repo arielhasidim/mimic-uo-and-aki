@@ -43,4 +43,3 @@ After creating all the tables and repreducing the associated study, you should e
 ## Citation
 
 ........
-# mimic-uo-and-aki
