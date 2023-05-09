@@ -1,0 +1,1069 @@
+---
+title: "From Arbitrary Charting to Precise Hourly Urine Rates and AKI Staging: A Comprehensive ICU Database Analysis"
+author: "Ariel A Hasidim, Matthew A Klein, Itamar Ben Shitrit, Lior Fuchs"
+date: "2023-05-07"
+output: 
+  html_document:
+    code_folding: hide
+    toc: yes
+    number_sections: no
+    toc_float: yes
+    toc_collapsed: yes
+    toc_depth: 3
+    theme: simplex
+    code_download: no
+params: 
+  billing_account: "CHANGE TO BILLING ACCOUNT"
+---
+<!-- ################################ NOTICE ################################### -->
+<!-- # 1. Running and creating the hourly-adjusted UO and AKI tables in the    # -->
+<!-- #    associated billing account/project name is a preliminary requirement.# -->
+<!-- #    For more information and instruction see the GitHub repository.      # -->
+<!-- #                                                                         # -->
+<!-- # 2. Please use 'Knit with Parameters' to provide your billing account    # -->
+<!-- #    for Google's BigQuery that is credentialed for PhysioNet/MIMIC-IV.   # -->
+<!-- ########################################################################### -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+# Installs pacman ("package manager") if needed
+if (!require("pacman")) install.packages("pacman")
+
+# Use pacman to load add-on packages as desired
+pacman::p_load(pacman, DBI, bigrquery, tidyverse, reshape2, finalfit, psych, ggplot2, 
+               ggbreak,scales,ggpmisc, ggforce, rlang, quantreg, broom, kableExtra, 
+               rmdformats, table1, flextable, survival, survminer, nortest, gtsummary,
+               ggsci, ggsurvfit) 
+
+# Establish connection with BigQuery and billing acount with the correct access
+con <- dbConnect(
+  bigrquery::bigquery(),
+  project = "physionet-data",
+  dataset = "mimiciv_icu",
+  billing = params$billing_account
+)
+
+dbListTables(con)
+```
+
+```{r Quering BigQuery, cache=TRUE, include=FALSE}
+raw_uo <- dbGetQuery(con, "SELECT * FROM `mimic_uo_and_aki.a_urine_output_raw`")
+
+raw_uo_excluions_duplicates <- dbGetQuery(con, statement = read_file('sql/raw_uo_excluions_duplicates.sql'))
+
+uo_rate_including_null_collection_period <- dbGetQuery(con, "SELECT * FROM `mimic_uo_and_aki.b_uo_rate`")
+uo_rate <- uo_rate_including_null_collection_period %>%
+  drop_na(TIME_INTERVAL)
+uo_rate_true <- uo_rate %>% filter(VALIDITY == TRUE)
+uo_rate_true_foley <- uo_rate_true %>% filter(SOURCE == "Foley")
+
+hourly_uo <- dbGetQuery(con, "SELECT * FROM `mimic_uo_and_aki.c_hourly_uo`")
+uo_ml_kg_hr <- hourly_uo %>% 
+  drop_na(HOURLY_VALID_WEIGHTED_MEAN_RATE, WEIGHT_ADMIT) %>%
+  mutate(ML_KG_HR = HOURLY_VALID_WEIGHTED_MEAN_RATE / WEIGHT_ADMIT)
+
+table_1 <- dbGetQuery(con, statement = read_file('sql/tbl1.sql'))
+
+akis <- dbGetQuery(con, statement = read_file('sql/akis with mortality.sql'))
+
+creat_diff <- dbGetQuery(con, statement = read_file('sql/creat diff.sql'))
+```
+\ 
+
+This is a full reproduction of the study's results.
+
+\ 
+
+**For more details see:**
+
+-   Full article at Scientific Data: [doi]()
+-   [GitHub repository]()
+
+### Citation
+
+.............
+
+.............
+
+------------------------------------------------------------------------
+
+# Population and Study's Sample
+
+**Count all UO records (before exclusions):**
+
+```{r}
+nrow(raw_uo)
+```
+
+\ 
+**Count distinct patients:**
+
+```{r}
+n_distinct(raw_uo$SUBJECT_ID)
+```
+
+\ 
+**Count distinct hospital admissions:**
+
+```{r}
+n_distinct(raw_uo$HADM_ID)
+```
+
+\ 
+**Count distinct ICU stays:**
+
+```{r}
+n_distinct(raw_uo$STAY_ID)
+```
+
+\ 
+**Count total ICU days of UO monitoring:**
+
+```{r}
+nrow(hourly_uo) / 24
+```
+
+\ 
+
+## Figure for Raw UO Records Data
+```{r}
+raw_uo %>% count(LABEL, sort = TRUE) %>%
+   ggplot(aes(x=reorder(LABEL, -n), y=n)) +
+   geom_bar(stat="identity") +
+   xlab("") +
+   ylab("") +
+   geom_bar(stat="identity", fill="steelblue") +
+   geom_text(aes(label=n), vjust=-0.6, color="black", size=3) +
+   theme_minimal() +
+   theme(axis.text.y=element_blank()) +
+   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+     labs(
+         title = "Raw output count",
+         subtitle = "by source",
+         caption = "AAH"
+       ) +
+       theme(
+         plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+         plot.subtitle = element_text(size = 10, face = "bold"),
+         plot.caption = element_text(face = "italic")
+       )
+```
+
+\ 
+
+## Duplication Analysis
+
+### Check for Distinctiveness
+
+First, we are basing distinctive rows in the raw UO data.
+
+**Count distinct raw rows:**
+
+```{r}
+raw_uo %>% n_distinct()
+```
+
+Conclusion: the original raw query does not have duplicates (all rows are distinct by all columns)
+
+\ 
+
+### Check for Simultaneous Charting
+
+```{r}
+raw_uo_excluions_duplicates$same_value <- as.factor(raw_uo_excluions_duplicates$same_value)
+raw_uo_excluions_duplicates$label <- as.factor(raw_uo_excluions_duplicates$label)
+raw_uo_excluions_duplicates$label <- factor(raw_uo_excluions_duplicates$label, levels = as.factor(names(sort(table(raw_uo_excluions_duplicates$label),
+                                  decreasing = TRUE))))
+label(raw_uo_excluions_duplicates$same_value) <- "Equal values"
+label(raw_uo_excluions_duplicates$label) <- "Sources"
+table1(~label | same_value,  data=raw_uo_excluions_duplicates, overall=TRUE, droplevels=TRUE
+       ) %>% t1flex(.)
+```
+
+|       Show full SQL query -----\>
+
+```{sql, class.source = 'fold-hide', eval=FALSE, code = readLines("sql/raw_uo_excluions_duplicates.sql")}
+```
+
+In conclusion, most of the records have different values, and thus human error in duplicate record-keeping is not likely.
+
+\ 
+
+## Exclusion
+
+Used for *Figure 2. Overview of study's process.*
+
+**ICU type exclusion:**
+
+```{r}
+dbGetQuery(con, statement = read_file('sql/service_type_exclusion.sql')) %>%
+  flextable()
+```
+
+|       Show full SQL query -----\>
+
+```{sql, class.source = 'fold-hide', eval=FALSE, code = readLines("sql/service_type_exclusion.sql")}
+```
+
+\ 
+
+**GU irrigation exclusion:**
+
+```{r}
+dbGetQuery(con, statement = read_file('sql/gu_irig_exclusion.sql')) %>%
+  flextable()
+```
+
+|       Show full SQL query -----\>
+
+```{sql, class.source = 'fold-hide', eval=FALSE, code = readLines("sql/gu_irig_exclusion.sql")}
+```
+
+\ 
+
+**Uretral stent exclusion:**
+
+```{r}
+dbGetQuery(con, statement = read_file('sql/ure_stent_exclusion.sql')) %>%
+  flextable()
+```
+
+|       Show full SQL query -----\>
+
+```{sql, class.source = 'fold-hide', eval=FALSE, code = readLines("sql/ure_stent_exclusion.sql")}
+```
+
+\ 
+
+**Not passing sanity check:**
+
+```{r}
+dbGetQuery(con, statement = read_file('sql/sanity.sql')) %>%
+  flextable()
+```
+
+|       Show full SQL query -----\>
+
+```{sql, class.source = 'fold-hide', eval=FALSE, code = readLines("sql/sanity.sql")}
+```
+
+\ 
+
+**Total raw urine output after exclusion ("eligible records, before collection time"):**
+
+```{r}
+dbGetQuery(con, statement = read_file('sql/raw eligible.sql')) %>%
+  flextable()
+```
+
+|       Show full SQL query -----\>
+
+```{sql, class.source = 'fold-hide', eval=FALSE, code = readLines("sql/raw eligible.sql")}
+```
+
+\ 
+
+**Exclusion of first volume in each compartment per ICU stay:**
+
+```{r}
+uo_rate_including_null_collection_period %>%
+  filter(is.na(TIME_INTERVAL)) %>%
+  nrow()
+```
+
+\ 
+
+**Proportion of valid hours covered:**
+
+```{r}
+nrow(hourly_uo %>%
+       filter(!is.na(HOURLY_VALID_WEIGHTED_MEAN_RATE))) / nrow(hourly_uo)
+```
+
+\ 
+
+**Count UO records by anatomical compartment:**
+
+```{r}
+uo_rate %>% 
+  mutate(agg_group = case_when(SOURCE == "Foley" |
+                                 SOURCE == "Condom Cath" |
+                                 SOURCE == "Straight Cath" |
+                                 SOURCE == "Suprapubic" |
+                                 SOURCE == "Void" ~ "Urinary bladder",
+                               TRUE ~ SOURCE)
+  ) %>%
+           group_by(agg_group) %>%
+   dplyr::summarise(N = n()
+  ) %>% 
+  arrange(desc(N)) %>% 
+  flextable()
+```
+
+\ 
+
+## Table 1 - Patient's characteristics
+
+```{r}
+table_1$SERVICE <- as.factor(table_1$SERVICE)
+table_1$admission_age <- as.numeric(table_1$admission_age)
+table_1$weight_admit <- as.numeric(table_1$weight_admit)
+table_1$height_first <- as.numeric(table_1$height_first)
+table_1$creat_first <- as.numeric(table_1$creat_first)
+table_1$scr_baseline <- as.numeric(table_1$scr_baseline)
+
+table_1 <- table_1 %>%
+  mutate(race =
+           case_when(grepl("asian", race, ignore.case = TRUE) ~ "Asian",
+                     grepl("black", race, ignore.case = TRUE) ~ "African American",
+                     grepl("white", race, ignore.case = TRUE) ~ "Caucasian",
+                     grepl("hispanic", race, ignore.case = TRUE) ~ "Hispanic",
+                     grepl("other", race, ignore.case = TRUE) ~ "Other",
+                     grepl("native", race, ignore.case = TRUE) ~ "Other",
+                     grepl("MULTIPLE", race, ignore.case = TRUE) ~ "Other",
+                     grepl("PORTUGUESE", race, ignore.case = TRUE) ~ "Other",
+                     grepl("SOUTH AMERICAN", race, ignore.case = TRUE) ~ "Other",
+                     TRUE ~ as.character(NA)))
+
+table_1 %>%
+  select(admission_age, 
+         gender, weight_admit, 
+         charlson_comorbidity_index, 
+         sofa_first_day, 
+         ckd, 
+         scr_baseline,
+         creat_first,
+         race,
+         icu_days,
+         hospital_days,
+         rrt_binary,
+         hospital_expire_flag) %>%
+  tbl_summary(
+              type = list(
+                c(
+                  hospital_expire_flag,
+                  ckd,
+                  rrt_binary
+                  ) ~ "dichotomous",
+                c(
+                  admission_age,
+                  weight_admit,
+                  creat_first,
+                  scr_baseline
+                 ) ~ "continuous"
+              ),
+              statistic = c(admission_age,
+                  weight_admit,
+                  creat_first,
+                  scr_baseline) ~ "{mean} ({sd})",
+              missing = "no",
+              label = list(admission_age ~ "Age", 
+                           gender ~ "Gender",
+                           weight_admit ~ "Weight",
+                           charlson_comorbidity_index ~ "CCI",
+                           sofa_first_day ~ "Admission SOFA",
+                           ckd ~ "CKD, Stage 1-4",
+                           scr_baseline ~ "Baseline Creatinine",
+                           creat_first ~ "First Creatinine",
+                           race ~ "Ethnicity",
+                           icu_days ~ "Total days in ICU",
+                           hospital_days ~ "Total days in hospital",
+                           rrt_binary ~ "Renal replacement therapy",
+                           hospital_expire_flag ~ "Mortality")
+              ) %>%
+  add_n() %>%
+  bold_labels()
+```
+
+\ 
+
+## Table 2 - UO records characteristics
+
+```{r}
+uo_rate$SOURCE <- as.factor(uo_rate$SOURCE)
+uo_rate$VALIDITY <- as.factor(uo_rate$VALIDITY)
+uo_rate$SERVICE <- as.factor(uo_rate$SERVICE)
+
+table1(~VALUE + TIME_INTERVAL + SOURCE + VALIDITY| SERVICE,  data=uo_rate, overall=TRUE, droplevels=TRUE
+       ) %>% t1flex(.)
+```
+
+\ 
+
+## Data for single patient example
+
+The data that was used for single patient sample in table 1 and figure 6.
+
+### Raw UO records:
+
+```{r}
+raw_uo_as_character <- raw_uo %>%
+  filter(STAY_ID == 36871275)
+raw_uo_as_character[] <- lapply(raw_uo_as_character, as.character)
+
+raw_uo_as_character %>%
+  select(-SUBJECT_ID, -HADM_ID, -STAY_ID, -SERVICE) %>%
+  arrange(., CHARTTIME) %>%
+  slice_head(n=15) %>%
+  flextable()
+```
+
+\ 
+
+### UO Rates
+```{r}
+uo_rate %>%
+  filter(STAY_ID == 36871275) %>%
+  select(-HADM_ID, -STAY_ID, -WEIGHT_ADMIT, -SERVICE) %>%
+  arrange(., CHARTTIME) %>%
+  slice_head(n=20) %>%
+  flextable()
+```
+
+\ 
+
+### Hourly-Adjusted UO
+```{r}
+hourly_uo %>%
+  filter(STAY_ID == 36871275) %>%
+  select(-STAY_ID, -WEIGHT_ADMIT) %>%
+  arrange(., T_PLUS) %>%
+  slice_head(n=20) %>%
+  flextable()
+```
+
+------------------------------------------------------------------------
+
+# Raw data analysis
+
+## Collection Periods
+
+```{r}
+uo_rate %>% group_by(SOURCE) %>%
+   dplyr::summarise(N = n(),
+                   Mean = round(mean(TIME_INTERVAL),0),
+                   SD = round(sd(TIME_INTERVAL),0),
+                   '25th' = round(quantile(TIME_INTERVAL, 0.25),0),
+                   '50th' = round(quantile(TIME_INTERVAL, 0.50),0),
+                   '75th' = round(quantile(TIME_INTERVAL, 0.75),0),
+                   '95th' = round(quantile(TIME_INTERVAL, 0.95),0),
+                   # Min = round(min(TIME_INTERVAL),0),
+                   Max = round(max(TIME_INTERVAL),0)
+  ) %>% 
+  arrange(desc(N)) %>% 
+  flextable()
+```
+
+```{r}
+ggplot(data = uo_rate, aes(x = TIME_INTERVAL / 60)) +
+  geom_histogram(binwidth = 1) +
+  facet_wrap(~SOURCE, scales = "free") +
+  xlim(-1, 20) +
+  labs(
+          title = "Collection periods",
+          subtitle = "by source",
+          caption = "AAH",
+          x = "Time interval (hr)",
+          y = "Frequency"
+        ) +
+        theme(
+          plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 10, face = "bold"),
+          plot.caption = element_text(face = "italic")
+        )
+```
+
+\ 
+
+## Volumes and Collection Periods
+
+```{r}
+uo_rate %>% group_by(SOURCE) %>%
+  dplyr::summarise(N = n(),
+                   Mean = round(mean(VALUE),0),
+                   SD = round(sd(VALUE),0),
+                   '25th' = round(quantile(VALUE, 0.25),0),
+                   '50th' = round(quantile(VALUE, 0.50),0),
+                   '75th' = round(quantile(VALUE, 0.75),0)
+  ) %>% 
+  arrange(desc(N)) %>% 
+  flextable()
+```
+
+```{r}
+ggplot(data = uo_rate, aes(x = VALUE)) +
+  facet_wrap(~SOURCE, scales = "free") +
+  geom_histogram(binwidth = 50) +
+  xlim(-25, 1100) +
+  labs(
+        title = "Volumes",
+        subtitle = "by source",
+        caption = "AAH",
+        x = "Volume (ml)",
+        y = "Frequency"
+      ) +
+      theme(
+        plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 10, face = "bold"),
+        plot.caption = element_text(face = "italic")
+      )
+```
+
+\ 
+
+### Records of zero volume
+
+**The proportion of zero value UO measurements:**
+
+```{r}
+uo_rate_count <- uo_rate %>% 
+  count(SOURCE, sort = TRUE)
+
+uo_rate_0_count <- uo_rate %>% 
+  filter(VALUE == 0) %>% 
+  count(SOURCE, sort = TRUE)
+
+count_uo_zero_vs_all <- left_join(uo_rate_count, 
+                                  uo_rate_0_count, by = "SOURCE") %>% 
+  mutate(PROPORTION = n.y / n.x) %>%
+  pivot_longer(cols = n.y:n.x, names_to = "type")
+  
+count_uo_zero_vs_all %>%
+  ggplot(aes(x=reorder(SOURCE, -value), y=value, fill=type)) +
+    geom_bar(position="fill", stat="identity") +
+    xlab("") +
+    ylab("") +
+    scale_fill_brewer(palette="Paired") +  
+    geom_text(aes(label=ifelse(type == "n.y", paste((round(PROPORTION, 3) * 100), "%"), "")), 
+          color="black", 
+          size=3.5, 
+          vjust=-1,
+          position="fill") +
+    theme_minimal() +
+    theme(axis.text.y=element_blank()) +
+    theme(legend.position="none") +
+  theme(axis.text.y=element_blank()) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+     labs(
+         title = "Proportion of zero value raw output count",
+         subtitle = "by source",
+         caption = "AAH"
+       ) +
+       theme(
+         plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+         plot.subtitle = element_text(size = 10, face = "bold"),
+         plot.caption = element_text(face = "italic")
+       )
+```
+
+------------------------------------------------------------------------
+
+# Adjusting for hourly UO
+
+## UO Rate
+
+```{r}
+uo_rate %>% group_by(SOURCE) %>%
+    dplyr::summarise(N = n(),
+                   Mean = round(mean(HOURLY_RATE),0),
+                   SD = round(sd(HOURLY_RATE),0),
+                   '5th' = round(quantile(HOURLY_RATE, 0.05),0),
+                   '10th' = round(quantile(HOURLY_RATE, 0.1),0),
+                   '25th' = round(quantile(HOURLY_RATE, 0.25),0),
+                   '50th' = round(quantile(HOURLY_RATE, 0.50),0),
+                   '75th' = round(quantile(HOURLY_RATE, 0.75),0)
+                   # ,
+                   # '95th' = round(quantile(HOURLY_RATE, 0.95),0),
+                   # Min = round(min(HOURLY_RATE),0),
+                   # Max = round(max(HOURLY_RATE),0)
+  ) %>% 
+  arrange(desc(N)) %>% 
+  flextable()
+```
+
+```{r}
+ggplot(data = uo_rate, aes(x = HOURLY_RATE)) +
+  geom_histogram(binwidth = 20) +
+  facet_wrap(~SOURCE, scales = "free") +
+  xlim(-10, 500) +
+  labs(
+        title = "UO Rates",
+        subtitle = "by source",
+        caption = "AAH",
+        x = "Rate (ml/hr)",
+        y = "Frequency"
+      ) +
+      theme(
+        plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 10, face = "bold"),
+        plot.caption = element_text(face = "italic")
+      )
+```
+
+\ 
+
+### Low UO Rate Analysis
+
+```{r}
+uo_rate %>%
+  filter(SOURCE == "Foley",
+         HOURLY_RATE < 500) %>%
+  # arrange(STAY_ID) %>%
+  # slice_head(n = 1000000) %>%
+ggplot(aes(x = HOURLY_RATE, y = TIME_INTERVAL)) +
+  geom_smooth(alpha = 0.1, linewidth = 1) + 
+  geom_hline(yintercept=60, size = 0.3, color = "#cccccc") +
+  geom_vline(xintercept=20, size = 0.3, color = "black", linetype = "dashed") +
+  scale_x_continuous(breaks = c(0, 20, 50, 100, 200, 300)) +
+  scale_y_continuous(breaks = c(0, 60, 100, 200)) +
+  coord_cartesian(xlim = c(-10, 350), ylim = c(0,200)) +
+  labs(x="Urine output rate (ml/hr)", y = "Time interval (min)",
+       title="The association between UO rates and time intervals",
+       subtitle = "Smoothed conditional means for records of Foley catheter",
+       caption = "AAH") +
+  theme_classic() + # remove panel background and gridlines
+  theme(
+    plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 10, face = "bold"),
+    plot.caption = element_text(face = "italic")
+  )
+```
+
+```{r, cache=TRUE}
+uo_rate_qreg <- uo_rate %>%
+  filter(SOURCE == "Foley") %>%
+  arrange(STAY_ID) %>%
+  slice_head(n = 200000)
+
+#### OLS
+# lm <- lm(data=uo_rate_qreg, 
+#          formula =  TIME_INTERVAL ~ 
+#            HOURLY_RATE)
+# 
+# ols <- as.data.frame(coef(lm))
+# ols.ci <- as.data.frame(confint(lm, level = 0.95)) 
+# ols2 <- cbind(ols, ols.ci)
+# ols2 <- tibble::rownames_to_column(ols2, var="term")
+
+#### Quantile
+rq(TIME_INTERVAL ~ 
+  HOURLY_RATE, seq(0.20, 0.80, by = 0.10), data=uo_rate_qreg) %>%
+  tidy(se.type = "rank", conf.int = TRUE, conf.level = 0.95) %>%
+  filter(!grepl("factor", term)) %>%
+ggplot(aes(x=tau,y=estimate)) +
+  scale_y_continuous(limits = symmetric_limits) +
+  ##### quantilie results
+  # geom_point(color="#27408b", size = 0.3) + 
+  # geom_ribbon(aes(ymin=conf.low,ymax=conf.high),alpha=0.25, fill="#555555")+
+  geom_line(color="black", linetype = "dotdash", size = 0.3) + 
+  geom_point(size=3, shape=21, fill="white", size = 0.3) + 
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=.1) +
+  facet_wrap(~term, scales="free", ncol=2,
+             # labeller = labeller(.cols = label_both)
+             labeller = labeller(term =
+                                   c("(Intercept)" = "(Intercept)",
+                                     "HOURLY_RATE" = "UO Rate (ml/hr)"))
+             ) +
+  ##### OLS results
+  # geom_hline(data = ols2, aes(yintercept= `coef(lm)`), lty=1, color="red", size=0.3)+
+  # geom_hline(data = ols2, aes(yintercept= `2.5 %`), lty=2, color="red", size=0.3)+
+  # geom_hline(data = ols2, aes(yintercept= `97.5 %`), lty=2, color="red", size=0.3)+
+  #### Lines
+  geom_hline(yintercept = 0, size=0.3) +
+  labs(title="Quantile regression for time intervals to UO rate",
+       subtitle = "For precentiles 0.2-0.8, by 0.1 intervals",
+       caption = "AAH") +
+  theme_classic() + # remove panel background and gridlines
+  theme(
+    plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 10, face = "bold"),
+    plot.caption = element_text(face = "italic"),
+    strip.background = element_blank()
+  )
+```
+
+\ 
+
+**Collection periods for UO rate 20ml/hr or below**
+
+```{r}
+uo_rate %>% 
+  filter(HOURLY_RATE <= 20) %>%
+  group_by(SOURCE) %>%
+   dplyr::summarise(N = n(),
+                   Mean = round(mean(TIME_INTERVAL),0),
+                   SD = round(sd(TIME_INTERVAL),0),
+                   '25th' = round(quantile(TIME_INTERVAL, 0.25),0),
+                   '50th' = round(quantile(TIME_INTERVAL, 0.50),0),
+                   '75th' = round(quantile(TIME_INTERVAL, 0.75),0),
+                   '95th' = round(quantile(TIME_INTERVAL, 0.95),0),
+                   # Min = round(min(TIME_INTERVAL),0),
+                   Max = round(max(TIME_INTERVAL),0)
+  ) %>% 
+  arrange(desc(N)) %>% 
+  flextable()
+```
+
+```{r}
+uo_rate %>% 
+  filter(HOURLY_RATE <= 20) %>%
+ggplot(aes(x = TIME_INTERVAL / 60)) +
+  geom_histogram(binwidth = 1) +
+  facet_wrap(~SOURCE, scales = "free") +
+  xlim(-1, 20) +
+  labs(
+          title = "Collection periods for UO rate 20ml/hr or below",
+          subtitle = "by source",
+          caption = "AAH",
+          x = "Time interval (hr)",
+          y = "Frequency"
+        ) +
+        theme(
+          plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 10, face = "bold"),
+          plot.caption = element_text(face = "italic")
+        )
+```
+
+\ 
+
+### Mean Rate
+**Mean UO rate weighted by tyme and grouped by source:**
+```{r}
+uo_rate_true %>% 
+  group_by(SOURCE) %>%
+  summarise(weighted_mean_rate = weighted.mean(HOURLY_RATE, TIME_INTERVAL)) %>%
+  flextable
+```
+
+\ 
+
+## Hourly-adjusted UO
+
+```{r}
+hourly_uo %>% drop_na(HOURLY_VALID_WEIGHTED_MEAN_RATE) %>%
+    dplyr::summarise(N = n(),
+                   Mean = round(mean(HOURLY_VALID_WEIGHTED_MEAN_RATE),0),
+                   SD = round(sd(HOURLY_VALID_WEIGHTED_MEAN_RATE),0),
+                   '25th' = round(quantile(HOURLY_VALID_WEIGHTED_MEAN_RATE, 0.25),0),
+                   '50th' = round(quantile(HOURLY_VALID_WEIGHTED_MEAN_RATE, 0.50),0),
+                   '75th' = round(quantile(HOURLY_VALID_WEIGHTED_MEAN_RATE, 0.75),0),
+                   '95th' = round(quantile(HOURLY_VALID_WEIGHTED_MEAN_RATE, 0.95),0),
+                   Min = round(min(HOURLY_VALID_WEIGHTED_MEAN_RATE),0),
+                   Max = round(max(HOURLY_VALID_WEIGHTED_MEAN_RATE),0)
+  ) %>% 
+  arrange(desc(N)) %>% 
+  flextable()
+```
+
+```{r}
+hourly_uo %>% drop_na(HOURLY_VALID_WEIGHTED_MEAN_RATE) %>%
+ggplot(aes(x = HOURLY_VALID_WEIGHTED_MEAN_RATE)) +
+  geom_histogram(binwidth = 20) +
+  xlim(-10, 500) + 
+  labs(
+        title = "Hourly-Adjusted UO",
+        subtitle = "Summed sources by hourly weight",
+        caption = "AAH",
+        x = "Hourly UO (ml)",
+        y = "Frequency"
+      ) +
+      theme(
+        plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 10, face = "bold"),
+        plot.caption = element_text(face = "italic")
+      )
+```
+
+\ 
+
+### Simple Sum Comparison
+**Showing proportion of hours with less than  100ml difference):**
+
+```{r}
+adj_uo_diff <- hourly_uo %>%
+  select(HOURLY_VALID_WEIGHTED_MEAN_RATE, SIMPLE_SUM) %>%
+  filter(!is.na(HOURLY_VALID_WEIGHTED_MEAN_RATE)) %>%
+  mutate(no_diff = 
+           ifelse((is.na(HOURLY_VALID_WEIGHTED_MEAN_RATE) &
+                  is.na(SIMPLE_SUM)) |
+             (!is.na(HOURLY_VALID_WEIGHTED_MEAN_RATE) &
+                  !is.na(SIMPLE_SUM) &
+                    abs(HOURLY_VALID_WEIGHTED_MEAN_RATE-SIMPLE_SUM) < 100), 
+                  1, 
+                  0),
+         .keep = "none")
+
+mean(adj_uo_diff$no_diff)
+```
+
+\ 
+
+### Hourly UO Per Kilogram
+
+```{r}
+uo_ml_kg_hr %>%
+  dplyr::summarise(N = n(),
+                   Mean = round(mean(ML_KG_HR),2),
+                   SD = round(sd(ML_KG_HR),2),
+                   '25th' = round(quantile(ML_KG_HR, 0.25),2),
+                   '50th' = round(quantile(ML_KG_HR, 0.50),2),
+                   '75th' = round(quantile(ML_KG_HR, 0.75),2),
+                   '95th' = round(quantile(ML_KG_HR, 0.95),2),
+                   Min = round(min(ML_KG_HR),2),
+                   Max = round(max(ML_KG_HR),2)
+  ) %>% flextable
+```
+
+```{r}
+mean_log <- log(mean(uo_ml_kg_hr$ML_KG_HR))
+sd_log <- log(sd(uo_ml_kg_hr$ML_KG_HR))
+ggplot() + 
+  xlim(-1, 10) + 
+  geom_histogram(aes(x = ML_KG_HR
+                     # , y =..density..
+                     ), data=uo_ml_kg_hr, binwidth = 0.05) + 
+  # stat_function(fun = dlnorm, args = list(meanlog = mean_log, sdlog = sd_log, log = FALSE), size=1, color='gray') +
+  labs(
+        title = "Hourly-Adjusted UO per Kilogram",
+        subtitle = "Summed sources by hourly weight",
+        caption = "AAH",
+        x = "Hourly volume to kg (ml/hr/kg)",
+        y = "Frequency"
+      ) +
+      theme(
+        plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 10, face = "bold"),
+        plot.caption = element_text(face = "italic")
+      )
+```
+
+------------------------------------------------------------------------
+
+# Performance analysis
+## First Oliguric-AKI Events
+Number of identified first oliguric-AKI events in hospitalization stratified by maximum stage:
+```{r}
+akis_excluded <- akis %>%
+  filter(NO_START == 0,
+         AKI_TYPE == 1,
+         HADM_RESOLVED_UO_AKI_PRE == 0)
+
+akis_excluded$PEAK_UO_STAGE <- as.character(akis_excluded$PEAK_UO_STAGE)
+
+aki_uo_analysis <- left_join(akis_excluded, uo_ml_kg_hr, by = "STAY_ID") %>%
+  drop_na(AKI_START, 
+          TIME_INTERVAL_FINISH, 
+          PEAK_UO_STAGE) %>%
+  select(AKI_ID,
+         STAY_ID,
+         PEAK_UO_STAGE,
+         AKI_START,
+         TIME_INTERVAL_FINISH,
+         UO_KG = ML_KG_HR
+         ) %>%
+  mutate(TIME = as.double(difftime(TIME_INTERVAL_FINISH, 
+                                   AKI_START, 
+                                   units = c("hour")))) %>%
+  filter(TIME >= -48 & TIME <= 48)
+
+aki_creat_analysis <- left_join(akis_excluded, creat_diff %>% select(-STAY_ID), by = "HADM_ID") %>%
+  select(AKI_ID,
+         STAY_ID,
+         PEAK_UO_STAGE,
+         AKI_START,
+         CHARTTIME,
+         CREAT,
+         SCR_BASELINE,
+         CREAT_BASLINE_DIFF,
+         CREAT_BASLINE_RATIO,
+         CREAT_LOWEST7_DIFF,
+         CREAT_LOWEST7_RATIO
+         ) %>%
+  mutate(AKI_TO_CREAT = as.double(difftime(CHARTTIME, 
+                                   AKI_START, 
+                                   units = c("mins"))) / 60) %>%
+  filter(AKI_TO_CREAT >= -72 & AKI_TO_CREAT <= 72)
+```
+
+```{r}
+akis_excluded %>%
+  select(PEAK_UO_STAGE) %>%
+  mutate(PEAK_UO_STAGE = as.factor(PEAK_UO_STAGE)) %>%
+  tbl_summary()
+```
+
+```{r}
+aki_uo_analysis %>% 
+ggplot(aes(TIME, UO_KG, color=PEAK_UO_STAGE, fill=PEAK_UO_STAGE))  + 
+           # linetype=PEAK_UO_STAGE))  + 
+  geom_hline(yintercept=0.3, size = 0.3, color = "#cccccc") +
+  geom_hline(yintercept=0.5, size = 0.3, color = "#cccccc") +
+  geom_vline(xintercept=0, size = 0.3, color = "black", linetype = "dashed") +
+  stat_summary(fun = median, geom="line") +
+  scale_x_continuous(breaks = seq(-24, 48, by=6)) +
+  scale_y_continuous(breaks = c(0, 0.3, 0.5)) +
+  coord_cartesian(xlim = c(-12, 24)) +
+  # xlim(-24, 48) +
+  stat_summary(fun.min = function(z) { quantile(z,0.25) },
+               fun.max = function(z) { quantile(z,0.75) },
+               geom="ribbon", colour = NA, alpha=0.2) +
+  labs(x="Time around AKI onset (hour)", y = "Urine output (ml/kg/hr)", 
+       title="Hourly urine output at the onset of oliguric AKI events",
+       subtitle = "Median and interquantile range", color="Peak AKI stage", fill="Peak AKI stage",
+       caption = "AAH") + 
+       # linetype="Peak AKI stage") + 
+  theme_classic() + # remove panel background and gridlines
+  # annotate("rect", xmin = -24, xmax = 48, ymin = 0, ymax = 0.5,
+  #          alpha = .1) +
+  # annotate("rect", xmin = -24, xmax = 48, ymin = 0, ymax = 0.3,
+  #          alpha = .1) +
+  scale_colour_manual(values=c("#00a087ff", "#4dbbd5ff", "#e64b35ff")
+                      # ,labels=c("1 (N=12,911)","2 (N=10,619)","3 (N=1,300)")
+                      ) +
+  scale_fill_manual(values=c("#00a087ff", "#4dbbd5ff", "#e64b35ff")
+                    # ,labels=c("1 (N=12,911)","2 (N=10,619)","3 (N=1,300)")
+                      ) +
+  theme(
+    plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 10, face = "bold"),
+    plot.caption = element_text(face = "italic")
+  )
+    
+```
+
+\ 
+
+## Survival Analysis
+```{r}
+km_fit <- survfit2(Surv(FIRST_AKI_TO_DEATH_OR_DISCH, HADM_DEATH_FLAG) ~ PEAK_UO_STAGE, data = akis_excluded)
+
+# ggsurvplot(km_fit,
+#           conf.int = TRUE,
+#           risk.table.col = "strata", # Change risk table color by groups
+#           ggtheme = theme_bw(), # Change ggplot2 theme
+#           palette = c("#E7B800", "#2E9FDF", "#CCCCCC"),
+#           xlim = c(0, 30)) 
+
+km_fit %>%
+ggsurvfit(linewidth = 1) +
+  add_confidence_interval() +
+  add_quantile() +
+  scale_ggsurvfit(x_scales = list(breaks = c(0:30))) +
+  coord_cartesian(xlim = c(0, 30)) +
+  theme_classic() +
+  labs(x="Days", y = "Survival", 
+       title="30 days survival analysis",
+       subtitle = "Stratified by first hospitalization AKI event peak staging", color='Peak AKI stage', fill='Peak AKI stage') +
+  scale_colour_manual(values=c("#00a087ff", "#4dbbd5ff", "#e64b35ff"),
+                    labels=c("1","2","3")) +
+  scale_fill_manual(values=c("#00a087ff", "#4dbbd5ff", "#e64b35ff"),
+                    labels=c("1","2","3")) +
+  theme(legend.position = "bottom",
+        plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 10, face = "bold")) +
+  add_pvalue(caption = "Log-rank {p.value}")
+```
+
+**Log rank for each pair:**
+```{r}
+survdiff(Surv(FIRST_AKI_TO_DEATH_OR_DISCH, HADM_DEATH_FLAG) ~ PEAK_UO_STAGE, 
+         data = akis_excluded)
+
+akis_excluded_non_1 <- akis_excluded %>%
+  filter(PEAK_UO_STAGE != 1)
+survdiff(Surv(FIRST_AKI_TO_DEATH_OR_DISCH, HADM_DEATH_FLAG) ~ PEAK_UO_STAGE, 
+         data = akis_excluded_non_1)
+
+akis_excluded_non_2 <- akis_excluded %>%
+  filter(PEAK_UO_STAGE != 2)
+survdiff(Surv(FIRST_AKI_TO_DEATH_OR_DISCH, HADM_DEATH_FLAG) ~ PEAK_UO_STAGE, 
+         data = akis_excluded_non_2)
+
+akis_excluded_non_3 <- akis_excluded %>%
+  filter(PEAK_UO_STAGE != 3)
+survdiff(Surv(FIRST_AKI_TO_DEATH_OR_DISCH, HADM_DEATH_FLAG) ~ PEAK_UO_STAGE, 
+         data = akis_excluded_non_3)
+```
+
+\ 
+
+## Serum Creatinine Analysis
+```{r}
+aki_creat_analysis %>%
+ggplot(aes(x=CREAT_BASLINE_DIFF)) + 
+    xlim(0, 5) + 
+    geom_histogram(binwidth = 0.1)
+```
+
+```{r}
+aki_creat_analysis %>% 
+  filter(PEAK_UO_STAGE == 3,
+         AKI_TO_CREAT >= -24,
+         AKI_TO_CREAT <= 48) %>%
+  mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
+                                breaks=12, 
+                                ordered_result = TRUE,
+                                # labels=FALSE
+                                )) %>%
+ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_DIFF)) +
+    geom_boxplot(linetype = "dashed", outlier.shape = NA, color="brown") +
+    stat_boxplot(aes(ymin = ..lower.., ymax = ..upper..), outlier.shape = NA, color="brown", fill="orange") +
+    stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
+    stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
+    stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
+    stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
+                   vjust=1.8, aes( label=round(..y.., digits=2))) +
+    # scale_x_discrete(labels=c('-24      ','-18      ','-12      ','-6      ','0      ','6      ','12      ','18      ','24      ','30      ','36      ','42      ','48      ')) +
+    labs(x="Time to AKI start (hours)", y = "Difference from basline (mg/dl)", 
+       title="Absolute change from 7-days lowest serum creatinine",
+       subtitle = "First event in addmission, for peak UO-AKI-staging 3, boxplot and means, outliers not shown") +
+    coord_cartesian(ylim = c(-0.1, 4)) +
+    theme_classic() + # remove panel background and gridlines
+    theme(legend.position = "bottom",
+          plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 10, face = "bold"),
+          # axis.text.x = element_text(margin = margin(t = 2),
+          #                            hjust="1")
+          )
+```
+
+```{r}
+aki_creat_analysis %>% 
+  filter(PEAK_UO_STAGE == 3,
+         AKI_TO_CREAT >= -24,
+         AKI_TO_CREAT <= 48) %>%
+  mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
+                                breaks=12, 
+                                ordered_result = TRUE)) %>%
+ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_RATIO)) +
+    geom_boxplot(linetype = "dashed", outlier.shape = NA, color="brown") +
+    stat_boxplot(aes(ymin = ..lower.., ymax = ..upper..), outlier.shape = NA, color="brown", fill="orange") +
+    stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
+    stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
+    stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
+    stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
+                   vjust=1.8, aes( label=round(..y.., digits=2))) +
+    labs(x="Time to AKI start (hours)", y = "Difference from basline (mg/dl)", 
+       title="Relative change from 7-days lowest serum creatinine",
+       subtitle = "First event in addmission, for peak UO-AKI-staging 3, boxplot and means, outliers not shown") +
+    coord_cartesian(ylim = c(1.01, 4)) +
+    theme_classic() + # remove panel background and gridlines
+    theme(legend.position = "bottom",
+          plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 10, face = "bold"))
+```
+
+------------------------------------------------------------------------
+
+# Technical Details
+
+## R Session Info:
+
+```{r}
+sessionInfo()
+```
+
+::: {.tocify-extend-page data-unique="tocify-extend-page" style="height: 0;"}
+:::
