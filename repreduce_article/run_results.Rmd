@@ -121,7 +121,6 @@ n_distinct(raw_uo$STAY_ID)
 **Count total ICU days of UO monitoring:**
 
 ```{r}
-nrow(hourly_uo) / 24
 ```
 
 \ 
