@@ -45,6 +45,9 @@ FROM
             COUNT(VALUE) uo_count
         FROM
             `mimic_uo_and_aki.a_urine_output_raw`
+        WHERE
+            VALUE <= 5000
+            AND VALUE >= 0
         GROUP BY
             STAY_ID
     ) b ON b.STAY_ID = a.STAY_ID
