@@ -222,7 +222,7 @@ WITH
             b.SUBJECT_ID,
             b.HADM_ID,
             a.STAY_ID,
-            c.WEIGHT_ADMIT WEIGHT,
+            IFNULL(c.WEIGHT_ADMIT, c.WEIGHT) WEIGHT,
             a.AKI_START,
             a.AKI_STOP,
             a.AKI_TYPE,

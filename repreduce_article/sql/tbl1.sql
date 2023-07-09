@@ -29,7 +29,7 @@ SELECT
     c.race,
     c.los_icu icu_days,
     c.los_hospital hospital_days,
-    d.weight_admit,
+    IFNULL(d.weight_admit, d.weight) weight_admit,
     e.height_first,
     f.SOFA sofa_first_day,
     g.charlson_comorbidity_index,

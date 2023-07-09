@@ -16,7 +16,7 @@ WITH uo_with_intervals_sources_and_weight AS (
             (
                 DATETIME_DIFF(a.CHARTTIME, MAX(b.CHARTTIME), SECOND) / 60
             ) AS TIME_INTERVAL,
-            w.WEIGHT_ADMIT
+            IFNULL(w.WEIGHT_ADMIT, w.WEIGHT) WEIGHT_ADMIT
         FROM
             `mimic_uo_and_aki.a_urine_output_raw` a
             LEFT JOIN `mimic_uo_and_aki.a_urine_output_raw` b ON b.STAY_ID = a.STAY_ID
@@ -38,7 +38,8 @@ WITH uo_with_intervals_sources_and_weight AS (
             a.CHARTTIME,
             a.ITEMID,
             c.LABEL,
-            w.WEIGHT_ADMIT
+            w.WEIGHT_ADMIT,
+            w.WEIGHT
     ),
     stays_services AS (
         -- Adding ICU type by looking into services
