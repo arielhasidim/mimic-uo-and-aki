@@ -239,7 +239,7 @@ SELECT
     b.SUBJECT_ID,
     b.HADM_ID,
     a.STAY_ID,
-    c.WEIGHT,
+    IFNULL(c.WEIGHT_ADMIT, c.WEIGHT) WEIGHT,
     a.aki_uo_starts AS AKI_START,
     a.aki_uo_ends AS AKI_STOP,
     a.no_start AS NO_START,

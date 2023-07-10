@@ -121,7 +121,9 @@ n_distinct(raw_uo$STAY_ID)
 **Count total ICU days of UO monitoring:**
 
 ```{r}
-nrow(hourly_uo) / 24
+hourly_uo %>% 
+  drop_na(HOURLY_VALID_WEIGHTED_MEAN_RATE) %>%
+  nrow() / 24
 ```
 
 \ 
@@ -338,7 +340,8 @@ table_1 %>%
          icu_days,
          hospital_days,
          rrt_binary,
-         hospital_expire_flag) %>%
+         hospital_expire_flag,
+         uo_count) %>%
   tbl_summary(
               type = list(
                 c(
@@ -370,7 +373,8 @@ table_1 %>%
                            icu_days ~ "Total days in ICU",
                            hospital_days ~ "Total days in hospital",
                            rrt_binary ~ "Renal replacement therapy",
-                           hospital_expire_flag ~ "Mortality")
+                           hospital_expire_flag ~ "Mortality",
+                           uo_count ~ "Raw UO records")
               ) %>%
   add_n() %>%
   bold_labels()
