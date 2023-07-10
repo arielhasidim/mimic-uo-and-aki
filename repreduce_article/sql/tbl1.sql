@@ -29,7 +29,7 @@ SELECT
     c.race,
     c.los_icu icu_days,
     c.los_hospital hospital_days,
-    d.weight_admit,
+    IFNULL(d.weight_admit, d.weight) weight_admit,
     e.height_first,
     f.SOFA sofa_first_day,
     g.charlson_comorbidity_index,
@@ -45,6 +45,9 @@ FROM
             COUNT(VALUE) uo_count
         FROM
             `mimic_uo_and_aki.a_urine_output_raw`
+        WHERE
+            VALUE <= 5000
+            AND VALUE >= 0
         GROUP BY
             STAY_ID
     ) b ON b.STAY_ID = a.STAY_ID
