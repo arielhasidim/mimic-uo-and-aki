@@ -851,7 +851,7 @@ Number of identified first oliguric-AKI events in hospitalization stratified by 
 ```{r}
 akis_excluded <- akis %>%
   filter(NO_START == 0,
-         AKI_TYPE == 1,
+         # AKI_TYPE == 1,
          HADM_RESOLVED_UO_AKI_PRE == 0)
 
 akis_excluded$PEAK_UO_STAGE <- as.character(akis_excluded$PEAK_UO_STAGE)

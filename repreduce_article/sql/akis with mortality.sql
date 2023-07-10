@@ -7,7 +7,6 @@ WITH
       `mimic_uo_and_aki.e_aki_analysis` aa
       LEFT JOIN `mimic_uo_and_aki.e_aki_analysis` bb ON bb.HADM_ID = aa.HADM_ID
       AND bb.AKI_STOP < aa.AKI_START
-      AND bb.AKI_TYPE = 1
     GROUP BY
       aa.AKI_ID
   )
@@ -25,7 +24,6 @@ SELECT
   ) / 24  FIRST_AKI_TO_DEATH_OR_DISCH,
   c.hospital_expire_flag HADM_DEATH_FLAG,
   a.WORST_STAGE PEAK_UO_STAGE,
-  a.AKI_TYPE,
   a.NO_START,
   b.HADM_RESOLVED_UO_AKI_PRE
 FROM
