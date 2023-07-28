@@ -47,7 +47,7 @@ con <- dbConnect(
 dbListTables(con)
 ```
 
-```{r Quering BigQuery, cache=TRUE, include=FALSE}
+```{r Quering BigQuery, cache=FALSE, include=FALSE}
 raw_uo <- dbGetQuery(con, "SELECT * FROM `mimic_uo_and_aki.a_urine_output_raw`")
 
 raw_uo_excluions_duplicates <- dbGetQuery(con, statement = read_file('sql/raw_uo_excluions_duplicates.sql'))
@@ -130,7 +130,14 @@ hourly_uo %>%
 
 ## Figure for Raw UO Records Data
 ```{r}
-raw_uo %>% count(LABEL, sort = TRUE) %>%
+raw_uo %>% 
+  mutate(
+    LABEL = case_when(
+      LABEL == "GU Irrigant/Urine Volume Out" ~ "GU Irrig. Out",
+      LABEL == "GU Irrigant Volume In" ~ "GU Irrig. In",
+      .default = LABEL
+    )
+  ) %>% count(LABEL, sort = TRUE) %>%
    ggplot(aes(x=reorder(LABEL, -n), y=n)) +
    geom_bar(stat="identity") +
    xlab("") +
@@ -141,9 +148,7 @@ raw_uo %>% count(LABEL, sort = TRUE) %>%
    theme(axis.text.y=element_blank()) +
    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
      labs(
-         title = "Raw output count",
-         subtitle = "by source",
-         caption = "AAH"
+         title = "Frequency of Urine Output Charting by Source"
        ) +
        theme(
          plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
@@ -465,9 +470,7 @@ ggplot(data = uo_rate, aes(x = TIME_INTERVAL / 60)) +
   facet_wrap(~SOURCE, scales = "free") +
   xlim(-1, 20) +
   labs(
-          title = "Collection periods",
-          subtitle = "by source",
-          caption = "AAH",
+          title = "Collection Periods",
           x = "Time interval (hr)",
           y = "Frequency"
         ) +
@@ -502,8 +505,6 @@ ggplot(data = uo_rate, aes(x = VALUE)) +
   xlim(-25, 1100) +
   labs(
         title = "Volumes",
-        subtitle = "by source",
-        caption = "AAH",
         x = "Volume (ml)",
         y = "Frequency"
       ) +
@@ -551,8 +552,6 @@ count_uo_zero_vs_all %>%
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
      labs(
          title = "Proportion of zero value raw output count",
-         subtitle = "by source",
-         caption = "AAH"
        ) +
        theme(
          plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
@@ -594,7 +593,6 @@ ggplot(data = uo_rate, aes(x = HOURLY_RATE)) +
   labs(
         title = "UO Rates",
         subtitle = "by source",
-        caption = "AAH",
         x = "Rate (ml/hr)",
         y = "Frequency"
       ) +
@@ -623,9 +621,8 @@ ggplot(aes(x = HOURLY_RATE, y = TIME_INTERVAL)) +
   scale_y_continuous(breaks = c(0, 60, 100, 200)) +
   coord_cartesian(xlim = c(-10, 350), ylim = c(0,200)) +
   labs(x="Urine output rate (ml/hr)", y = "Time interval (min)",
-       title="The association between UO rates and time intervals",
-       subtitle = "Smoothed conditional means for records of Foley catheter",
-       caption = "AAH") +
+       title="The Association Between UO Rates and Collection Periods",
+       subtitle = "Smoothed conditional means for records of Foley catheter") +
   theme_classic() + # remove panel background and gridlines
   theme(
     plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
@@ -675,9 +672,7 @@ ggplot(aes(x=tau,y=estimate)) +
   # geom_hline(data = ols2, aes(yintercept= `97.5 %`), lty=2, color="red", size=0.3)+
   #### Lines
   geom_hline(yintercept = 0, size=0.3) +
-  labs(title="Quantile regression for time intervals to UO rate",
-       subtitle = "For precentiles 0.2-0.8, by 0.1 intervals",
-       caption = "AAH") +
+  labs(title="Quantile Analysis for Collection Periods as a Function of Rates") +
   theme_classic() + # remove panel background and gridlines
   theme(
     plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
@@ -719,7 +714,6 @@ ggplot(aes(x = TIME_INTERVAL / 60)) +
   labs(
           title = "Collection periods for UO rate 20ml/hr or below",
           subtitle = "by source",
-          caption = "AAH",
           x = "Time interval (hr)",
           y = "Frequency"
         ) +
@@ -768,8 +762,6 @@ ggplot(aes(x = HOURLY_VALID_WEIGHTED_MEAN_RATE)) +
   xlim(-10, 500) + 
   labs(
         title = "Hourly-Adjusted UO",
-        subtitle = "Summed sources by hourly weight",
-        caption = "AAH",
         x = "Hourly UO (ml)",
         y = "Frequency"
       ) +
@@ -831,8 +823,6 @@ ggplot() +
   # stat_function(fun = dlnorm, args = list(meanlog = mean_log, sdlog = sd_log, log = FALSE), size=1, color='gray') +
   labs(
         title = "Hourly-Adjusted UO per Kilogram",
-        subtitle = "Summed sources by hourly weight",
-        caption = "AAH",
         x = "Hourly volume to kg (ml/hr/kg)",
         y = "Frequency"
       ) +
@@ -914,9 +904,8 @@ ggplot(aes(TIME, UO_KG, color=PEAK_UO_STAGE, fill=PEAK_UO_STAGE))  +
                fun.max = function(z) { quantile(z,0.75) },
                geom="ribbon", colour = NA, alpha=0.2) +
   labs(x="Time around AKI onset (hour)", y = "Urine output (ml/kg/hr)", 
-       title="Hourly urine output at the onset of oliguric AKI events",
-       subtitle = "Median and interquantile range", color="Peak AKI stage", fill="Peak AKI stage",
-       caption = "AAH") + 
+       title="Hourly Urine Output at the Onset of Oliguric AKI Events",
+       color="Maximum KDIGO-UO stage", fill="Maximum KDIGO-UO stage") + 
        # linetype="Peak AKI stage") + 
   theme_classic() + # remove panel background and gridlines
   # annotate("rect", xmin = -24, xmax = 48, ymin = 0, ymax = 0.5,
@@ -958,8 +947,8 @@ ggsurvfit(linewidth = 1) +
   coord_cartesian(xlim = c(0, 30)) +
   theme_classic() +
   labs(x="Days", y = "Survival", 
-       title="30 days survival analysis",
-       subtitle = "Stratified by first hospitalization AKI event peak staging", color='Peak AKI stage', fill='Peak AKI stage') +
+       title="30-Days Survival Analysis",
+       subtitle = "Stratified by first hospitalization AKI event peak staging", color='Maximum KDIGO-UO stage', fill='Maximum KDIGO-UO stage') +
   scale_colour_manual(values=c("#00a087ff", "#4dbbd5ff", "#e64b35ff"),
                     labels=c("1","2","3")) +
   scale_fill_manual(values=c("#00a087ff", "#4dbbd5ff", "#e64b35ff"),
@@ -1020,9 +1009,7 @@ ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_DIFF)) +
     stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
                    vjust=1.8, aes( label=round(..y.., digits=2))) +
     # scale_x_discrete(labels=c('-24      ','-18      ','-12      ','-6      ','0      ','6      ','12      ','18      ','24      ','30      ','36      ','42      ','48      ')) +
-    labs(x="Time to AKI start (hours)", y = "Difference from basline (mg/dl)", 
-       title="Absolute change from 7-days lowest serum creatinine",
-       subtitle = "First event in addmission, for peak UO-AKI-staging 3, boxplot and means, outliers not shown") +
+    labs(x="Time to AKI start (hours)", y = "Difference from basline (mg/dl)") +
     coord_cartesian(ylim = c(-0.1, 4)) +
     theme_classic() + # remove panel background and gridlines
     theme(legend.position = "bottom",
@@ -1049,9 +1036,7 @@ ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_RATIO)) +
     stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
     stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
                    vjust=1.8, aes( label=round(..y.., digits=2))) +
-    labs(x="Time to AKI start (hours)", y = "Difference from basline (mg/dl)", 
-       title="Relative change from 7-days lowest serum creatinine",
-       subtitle = "First event in addmission, for peak UO-AKI-staging 3, boxplot and means, outliers not shown") +
+    labs(x="Time to AKI start (hours)", y = "Difference from basline (mg/dl)") +
     coord_cartesian(ylim = c(1.01, 4)) +
     theme_classic() + # remove panel background and gridlines
     theme(legend.position = "bottom",
