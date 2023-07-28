@@ -704,7 +704,7 @@ ggplot(aes(x = HOURLY_RATE, y = TIME_INTERVAL)) +
 uo_rate_qreg <- uo_rate %>%
   filter(SOURCE == "Foley") %>%
   arrange(STAY_ID) %>%
-  slice_head(n = 200000)
+  slice_head(n = 300000)
 
 #### OLS
 # lm <- lm(data=uo_rate_qreg, 
@@ -717,7 +717,7 @@ uo_rate_qreg <- uo_rate %>%
 # ols2 <- tibble::rownames_to_column(ols2, var="term")
 
 #### Quantile
-rq(TIME_INTERVAL ~ 
+quantile_plot <- rq(TIME_INTERVAL ~ 
   HOURLY_RATE, seq(0.20, 0.80, by = 0.10), data=uo_rate_qreg) %>%
   tidy(se.type = "rank", conf.int = TRUE, conf.level = 0.95) %>%
   filter(!grepl("factor", term)) %>%
@@ -749,6 +749,7 @@ ggplot(aes(x=tau,y=estimate)) +
     plot.caption = element_text(face = "italic"),
     strip.background = element_blank()
   )
+quantile_plot
 ```
 
 \ 
@@ -827,7 +828,7 @@ hourly_uo %>% drop_na(HOURLY_VALID_WEIGHTED_MEAN_RATE) %>%
 ```{r}
 hourly_uo %>% drop_na(HOURLY_VALID_WEIGHTED_MEAN_RATE) %>%
 ggplot(aes(x = HOURLY_VALID_WEIGHTED_MEAN_RATE)) +
-  geom_histogram(binwidth = 20) +
+  geom_histogram(binwidth = 25) +
   xlim(-10, 500) + 
   labs(
         title = "Hourly-Adjusted UO",
