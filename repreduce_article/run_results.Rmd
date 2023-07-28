@@ -33,8 +33,8 @@ if (!require("pacman")) install.packages("pacman")
 # Use pacman to load add-on packages as desired
 pacman::p_load(pacman, DBI, bigrquery, tidyverse, reshape2, finalfit, psych, ggplot2, 
                ggbreak,scales,ggpmisc, ggforce, rlang, quantreg, broom, kableExtra, 
-               rmdformats, table1, flextable, survival, survminer, nortest, gtsummary,
-               ggsci, ggsurvfit) 
+               rmdformats, survival, survminer, nortest, gtsummary,
+               ggsci, ggsurvfit, gt) 
 
 # Establish connection with BigQuery and billing acount with the correct access
 con <- dbConnect(
@@ -93,7 +93,8 @@ This is a full reproduction of the study's results.
 **Count all UO records (before exclusions):**
 
 ```{r}
-nrow(raw_uo)
+all_rows_count <- nrow(raw_uo)
+all_rows_count
 ```
 
 \ 
@@ -168,7 +169,13 @@ First, we are basing distinctive rows in the raw UO data.
 **Count distinct raw rows:**
 
 ```{r}
-raw_uo %>% n_distinct()
+distinct_time_item_patient_rows_count <- raw_uo %>% 
+  select(-VALUE, 
+         -SERVICE, 
+         -LABEL) %>% 
+  n_distinct()
+
+distinct_time_item_patient_rows_count
 ```
 
 Conclusion: the original raw query does not have duplicates (all rows are distinct by all columns)
@@ -182,10 +189,12 @@ raw_uo_excluions_duplicates$same_value <- as.factor(raw_uo_excluions_duplicates$
 raw_uo_excluions_duplicates$label <- as.factor(raw_uo_excluions_duplicates$label)
 raw_uo_excluions_duplicates$label <- factor(raw_uo_excluions_duplicates$label, levels = as.factor(names(sort(table(raw_uo_excluions_duplicates$label),
                                   decreasing = TRUE))))
-label(raw_uo_excluions_duplicates$same_value) <- "Equal values"
-label(raw_uo_excluions_duplicates$label) <- "Sources"
-table1(~label | same_value,  data=raw_uo_excluions_duplicates, overall=TRUE, droplevels=TRUE
-       ) %>% t1flex(.)
+
+S1_a <- raw_uo_excluions_duplicates %>%
+  select(same_value, label) %>%
+  tbl_summary(by = same_value)
+
+S1_a
 ```
 
 |       Show full SQL query -----\>
@@ -205,7 +214,8 @@ Used for *Figure 2. Overview of study's process.*
 
 ```{r}
 dbGetQuery(con, statement = read_file('sql/service_type_exclusion.sql')) %>%
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
 ```
 
 |       Show full SQL query -----\>
@@ -219,7 +229,8 @@ dbGetQuery(con, statement = read_file('sql/service_type_exclusion.sql')) %>%
 
 ```{r}
 dbGetQuery(con, statement = read_file('sql/gu_irig_exclusion.sql')) %>%
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
 ```
 
 |       Show full SQL query -----\>
@@ -233,7 +244,8 @@ dbGetQuery(con, statement = read_file('sql/gu_irig_exclusion.sql')) %>%
 
 ```{r}
 dbGetQuery(con, statement = read_file('sql/ure_stent_exclusion.sql')) %>%
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
 ```
 
 |       Show full SQL query -----\>
@@ -247,7 +259,8 @@ dbGetQuery(con, statement = read_file('sql/ure_stent_exclusion.sql')) %>%
 
 ```{r}
 dbGetQuery(con, statement = read_file('sql/sanity.sql')) %>%
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
 ```
 
 |       Show full SQL query -----\>
@@ -261,7 +274,8 @@ dbGetQuery(con, statement = read_file('sql/sanity.sql')) %>%
 
 ```{r}
 dbGetQuery(con, statement = read_file('sql/raw eligible.sql')) %>%
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
 ```
 
 |       Show full SQL query -----\>
@@ -305,7 +319,8 @@ uo_rate %>%
    dplyr::summarise(N = n()
   ) %>% 
   arrange(desc(N)) %>% 
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
 ```
 
 \ 
@@ -445,8 +460,10 @@ uo_rate$SOURCE <- as.factor(uo_rate$SOURCE)
 uo_rate$VALIDITY <- as.factor(uo_rate$VALIDITY)
 uo_rate$SERVICE <- as.factor(uo_rate$SERVICE)
 
-table1(~VALUE + TIME_INTERVAL + SOURCE + VALIDITY| SERVICE,  data=uo_rate, overall=TRUE, droplevels=TRUE
-       ) %>% t1flex(.)
+uo_rate %>%
+  select(VALUE, TIME_INTERVAL, SOURCE, VALIDITY, SERVICE) %>%
+  tbl_summary(by=SERVICE) %>%
+  add_overall()
 ```
 
 \ 
@@ -466,7 +483,8 @@ raw_uo_as_character %>%
   select(-SUBJECT_ID, -HADM_ID, -STAY_ID, -SERVICE) %>%
   arrange(., CHARTTIME) %>%
   slice_head(n=15) %>%
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
 ```
 
 \ 
@@ -478,7 +496,8 @@ uo_rate %>%
   select(-HADM_ID, -STAY_ID, -WEIGHT_ADMIT, -SERVICE) %>%
   arrange(., CHARTTIME) %>%
   slice_head(n=20) %>%
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
 ```
 
 \ 
@@ -490,7 +509,8 @@ hourly_uo %>%
   select(-STAY_ID, -WEIGHT_ADMIT) %>%
   arrange(., T_PLUS) %>%
   slice_head(n=20) %>%
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
 ```
 
 ------------------------------------------------------------------------
@@ -512,7 +532,8 @@ uo_rate %>% group_by(SOURCE) %>%
                    Max = round(max(TIME_INTERVAL),0)
   ) %>% 
   arrange(desc(N)) %>% 
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
 ```
 
 ```{r}
@@ -537,7 +558,7 @@ ggplot(data = uo_rate, aes(x = TIME_INTERVAL / 60)) +
 ## Volumes and Collection Periods
 
 ```{r}
-uo_rate %>% group_by(SOURCE) %>%
+S2_a <- uo_rate %>% group_by(SOURCE) %>%
   dplyr::summarise(N = n(),
                    Mean = round(mean(VALUE),0),
                    SD = round(sd(VALUE),0),
@@ -546,11 +567,14 @@ uo_rate %>% group_by(SOURCE) %>%
                    '75th' = round(quantile(VALUE, 0.75),0)
   ) %>% 
   arrange(desc(N)) %>% 
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
+
+S2_a
 ```
 
 ```{r}
-ggplot(data = uo_rate, aes(x = VALUE)) +
+S2_b <- ggplot(data = uo_rate, aes(x = VALUE)) +
   facet_wrap(~SOURCE, scales = "free") +
   geom_histogram(binwidth = 50) +
   xlim(-25, 1100) +
@@ -564,6 +588,8 @@ ggplot(data = uo_rate, aes(x = VALUE)) +
         plot.subtitle = element_text(size = 10, face = "bold"),
         plot.caption = element_text(face = "italic")
       )
+
+S2_b
 ```
 
 \ 
@@ -585,7 +611,7 @@ count_uo_zero_vs_all <- left_join(uo_rate_count,
   mutate(PROPORTION = n.y / n.x) %>%
   pivot_longer(cols = n.y:n.x, names_to = "type")
   
-count_uo_zero_vs_all %>%
+S2_c <- count_uo_zero_vs_all %>%
   ggplot(aes(x=reorder(SOURCE, -value), y=value, fill=type)) +
     geom_bar(position="fill", stat="identity") +
     xlab("") +
@@ -609,6 +635,9 @@ count_uo_zero_vs_all %>%
          plot.subtitle = element_text(size = 10, face = "bold"),
          plot.caption = element_text(face = "italic")
        )
+S2_c
+```
+
 ```{r}
 uo_rate_0 <- uo_rate %>% filter(VALUE == 0) 
 S2_d <- uo_rate_0 %>% group_by(SOURCE) %>%
@@ -636,7 +665,7 @@ S2_d
 ## UO Rate
 
 ```{r}
-uo_rate %>% group_by(SOURCE) %>%
+S3_a <- uo_rate %>% group_by(SOURCE) %>%
     dplyr::summarise(N = n(),
                    Mean = round(mean(HOURLY_RATE),0),
                    SD = round(sd(HOURLY_RATE),0),
@@ -644,18 +673,20 @@ uo_rate %>% group_by(SOURCE) %>%
                    '10th' = round(quantile(HOURLY_RATE, 0.1),0),
                    '25th' = round(quantile(HOURLY_RATE, 0.25),0),
                    '50th' = round(quantile(HOURLY_RATE, 0.50),0),
-                   '75th' = round(quantile(HOURLY_RATE, 0.75),0)
-                   # ,
-                   # '95th' = round(quantile(HOURLY_RATE, 0.95),0),
-                   # Min = round(min(HOURLY_RATE),0),
-                   # Max = round(max(HOURLY_RATE),0)
+                   '75th' = round(quantile(HOURLY_RATE, 0.75),0),
+                   '95th' = round(quantile(HOURLY_RATE, 0.95),0),
+                   Min = round(min(HOURLY_RATE),0),
+                   Max = round(max(HOURLY_RATE),0)
   ) %>% 
   arrange(desc(N)) %>% 
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
+
+S3_a
 ```
 
 ```{r}
-ggplot(data = uo_rate, aes(x = HOURLY_RATE)) +
+S3_b <- ggplot(data = uo_rate, aes(x = HOURLY_RATE)) +
   geom_histogram(binwidth = 20) +
   facet_wrap(~SOURCE, scales = "free") +
   xlim(-10, 500) +
@@ -670,6 +701,8 @@ ggplot(data = uo_rate, aes(x = HOURLY_RATE)) +
         plot.subtitle = element_text(size = 10, face = "bold"),
         plot.caption = element_text(face = "italic")
       )
+
+S3_b
 ```
 
 \ 
@@ -767,11 +800,12 @@ uo_rate %>%
                    '50th' = round(quantile(TIME_INTERVAL, 0.50),0),
                    '75th' = round(quantile(TIME_INTERVAL, 0.75),0),
                    '95th' = round(quantile(TIME_INTERVAL, 0.95),0),
-                   # Min = round(min(TIME_INTERVAL),0),
+                   Min = round(min(TIME_INTERVAL),0),
                    Max = round(max(TIME_INTERVAL),0)
   ) %>% 
   arrange(desc(N)) %>% 
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
 ```
 
 ```{r}
@@ -799,10 +833,13 @@ ggplot(aes(x = TIME_INTERVAL / 60)) +
 ### Mean Rate
 **Mean UO rate weighted by tyme and grouped by source:**
 ```{r}
-uo_rate_true %>% 
+S3_c <- uo_rate_true %>% 
   group_by(SOURCE) %>%
   summarise(weighted_mean_rate = weighted.mean(HOURLY_RATE, TIME_INTERVAL)) %>%
-  flextable
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 1)
+
+S3_c
 ```
 
 \ 
@@ -810,7 +847,7 @@ uo_rate_true %>%
 ## Hourly-adjusted UO
 
 ```{r}
-hourly_uo %>% drop_na(HOURLY_VALID_WEIGHTED_MEAN_RATE) %>%
+S4_a <- hourly_uo %>% drop_na(HOURLY_VALID_WEIGHTED_MEAN_RATE) %>%
     dplyr::summarise(N = n(),
                    Mean = round(mean(HOURLY_VALID_WEIGHTED_MEAN_RATE),0),
                    SD = round(sd(HOURLY_VALID_WEIGHTED_MEAN_RATE),0),
@@ -822,11 +859,14 @@ hourly_uo %>% drop_na(HOURLY_VALID_WEIGHTED_MEAN_RATE) %>%
                    Max = round(max(HOURLY_VALID_WEIGHTED_MEAN_RATE),0)
   ) %>% 
   arrange(desc(N)) %>% 
-  flextable()
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
+
+S4_a
 ```
 
 ```{r}
-hourly_uo %>% drop_na(HOURLY_VALID_WEIGHTED_MEAN_RATE) %>%
+S4_b <- hourly_uo %>% drop_na(HOURLY_VALID_WEIGHTED_MEAN_RATE) %>%
 ggplot(aes(x = HOURLY_VALID_WEIGHTED_MEAN_RATE)) +
   geom_histogram(binwidth = 25) +
   xlim(-10, 500) + 
@@ -840,6 +880,8 @@ ggplot(aes(x = HOURLY_VALID_WEIGHTED_MEAN_RATE)) +
         plot.subtitle = element_text(size = 10, face = "bold"),
         plot.caption = element_text(face = "italic")
       )
+
+S4_b
 ```
 
 \ 
@@ -917,7 +959,7 @@ mean(adj_uo_diff$no_diff)
 ### Hourly UO Per Kilogram
 
 ```{r}
-uo_ml_kg_hr %>%
+S4_c <- uo_ml_kg_hr %>%
   dplyr::summarise(N = n(),
                    Mean = round(mean(ML_KG_HR),2),
                    SD = round(sd(ML_KG_HR),2),
@@ -927,13 +969,16 @@ uo_ml_kg_hr %>%
                    '95th' = round(quantile(ML_KG_HR, 0.95),2),
                    Min = round(min(ML_KG_HR),2),
                    Max = round(max(ML_KG_HR),2)
-  ) %>% flextable
+  ) %>% gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 2)
+
+S4_c
 ```
 
 ```{r}
 mean_log <- log(mean(uo_ml_kg_hr$ML_KG_HR))
 sd_log <- log(sd(uo_ml_kg_hr$ML_KG_HR))
-ggplot() + 
+S4_d <- ggplot() + 
   xlim(-1, 10) + 
   geom_histogram(aes(x = ML_KG_HR
                      # , y =..density..
@@ -949,6 +994,16 @@ ggplot() +
         plot.subtitle = element_text(size = 10, face = "bold"),
         plot.caption = element_text(face = "italic")
       )
+
+S4_d
+
+save(all_rows_count, 
+     distinct_time_item_patient_rows_count, 
+     S1_a, 
+     S2_a, S2_b, S2_c, S2_d, 
+     S3_a, S3_b, S3_c,
+     S4_a, S4_b, S4_c, S4_d, 
+     file = "s_data.Rda")
 ```
 
 ------------------------------------------------------------------------
