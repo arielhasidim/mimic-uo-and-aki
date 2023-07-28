@@ -318,71 +318,122 @@ table_1$admission_age <- as.numeric(table_1$admission_age)
 table_1$weight_admit <- as.numeric(table_1$weight_admit)
 table_1$height_first <- as.numeric(table_1$height_first)
 table_1$creat_first <- as.numeric(table_1$creat_first)
-table_1$scr_baseline <- as.numeric(table_1$scr_baseline)
 
 table_1 <- table_1 %>%
-  mutate(race =
-           case_when(grepl("asian", race, ignore.case = TRUE) ~ "Asian",
-                     grepl("black", race, ignore.case = TRUE) ~ "African American",
-                     grepl("white", race, ignore.case = TRUE) ~ "Caucasian",
-                     grepl("hispanic", race, ignore.case = TRUE) ~ "Hispanic",
-                     grepl("other", race, ignore.case = TRUE) ~ "Other",
-                     grepl("native", race, ignore.case = TRUE) ~ "Other",
-                     grepl("MULTIPLE", race, ignore.case = TRUE) ~ "Other",
-                     grepl("PORTUGUESE", race, ignore.case = TRUE) ~ "Other",
-                     grepl("SOUTH AMERICAN", race, ignore.case = TRUE) ~ "Other",
-                     TRUE ~ as.character(NA)))
+  mutate(
+    race =
+      case_when(
+        grepl("asian", race, ignore.case = TRUE) ~ "Asian",
+        grepl("black", race, ignore.case = TRUE) ~ "African American",
+        grepl("white", race, ignore.case = TRUE) ~ "Caucasian",
+        grepl("hispanic", race, ignore.case = TRUE) ~ "Hispanic",
+        grepl("other", race, ignore.case = TRUE) ~ "Other",
+        grepl("native", race, ignore.case = TRUE) ~ "Other",
+        grepl("MULTIPLE", race, ignore.case = TRUE) ~ "Other",
+        grepl("PORTUGUESE", race, ignore.case = TRUE) ~ "Other",
+        grepl("SOUTH AMERICAN", race, ignore.case = TRUE) ~ "Other",
+        TRUE ~ as.character(NA)
+      )
+  )
 
-table_1 %>%
-  select(admission_age, 
-         gender, weight_admit, 
-         charlson_comorbidity_index, 
-         sofa_first_day, 
-         ckd, 
-         scr_baseline,
-         creat_first,
-         race,
-         icu_days,
-         hospital_days,
-         rrt_binary,
-         hospital_expire_flag,
-         uo_count) %>%
+uo_for_table1 <- uo_rate_including_null_collection_period %>%
+  group_by(STAY_ID) %>%
+  summarise(
+    count = n(),
+    volumes = mean(VALUE, na.rm = TRUE),
+    collection_times = mean(TIME_INTERVAL, na.rm = TRUE),
+    rates = mean(HOURLY_RATE, na.rm = TRUE),
+    validity = mean(if_else(VALIDITY == TRUE, 1, 0)),
+    ml_kg_hr = mean(HOURLY_RATE / WEIGHT_ADMIT, na.rm = TRUE)
+  )
+
+t1a <- table_1 %>%
+  select(
+    admission_age,
+    gender,
+    weight_admit,
+    charlson_comorbidity_index,
+    sofa_first_day,
+    ckd,
+    creat_first,
+    race,
+    icu_days,
+    hospital_days,
+    rrt_binary,
+    hospital_expire_flag
+  ) %>%
   tbl_summary(
-              type = list(
-                c(
-                  hospital_expire_flag,
-                  ckd,
-                  rrt_binary
-                  ) ~ "dichotomous",
-                c(
-                  admission_age,
+    type = list(
+      c(hospital_expire_flag,
+        ckd,
+        rrt_binary) ~ "dichotomous",
+      c(admission_age,
+        weight_admit,
+        creat_first) ~ "continuous"
+    ),
+    statistic = c(admission_age,
                   weight_admit,
-                  creat_first,
-                  scr_baseline
-                 ) ~ "continuous"
-              ),
-              statistic = c(admission_age,
-                  weight_admit,
-                  creat_first,
-                  scr_baseline) ~ "{mean} ({sd})",
-              missing = "no",
-              label = list(admission_age ~ "Age", 
-                           gender ~ "Gender",
-                           weight_admit ~ "Weight",
-                           charlson_comorbidity_index ~ "CCI",
-                           sofa_first_day ~ "Admission SOFA",
-                           ckd ~ "CKD, Stage 1-4",
-                           scr_baseline ~ "Baseline Creatinine",
-                           creat_first ~ "First Creatinine",
-                           race ~ "Ethnicity",
-                           icu_days ~ "Total days in ICU",
-                           hospital_days ~ "Total days in hospital",
-                           rrt_binary ~ "Renal replacement therapy",
-                           hospital_expire_flag ~ "Mortality",
-                           uo_count ~ "Raw UO records")
-              ) %>%
+                  creat_first) ~ "{mean} ({sd})",
+    missing = "no",
+    label = list(
+      admission_age ~ "Age",
+      gender ~ "Gender",
+      weight_admit ~ "Weight",
+      charlson_comorbidity_index ~ "CCI",
+      sofa_first_day ~ "Admission SOFA",
+      ckd ~ "CKD, Stage 1-4",
+      creat_first ~ "First Creatinine",
+      race ~ "Ethnicity",
+      icu_days ~ "Total days in ICU",
+      hospital_days ~ "Total days in hospital",
+      rrt_binary ~ "Renal replacement therapy",
+      hospital_expire_flag ~ "Mortality"
+    )
+  ) %>%
   add_n() %>%
   bold_labels()
+
+display_prec <- function(x) mean(x)*100
+
+t1b <- uo_for_table1 %>%
+  select(count,
+         volumes,
+         collection_times,
+         validity,
+         rates,
+         ml_kg_hr) %>%
+  tbl_summary(
+    type = list(
+      c(volumes,
+        collection_times,
+        rates,
+        ml_kg_hr,
+        validity) ~ "continuous"
+    ),
+    statistic = list(
+      c(
+        volumes,
+        collection_times,
+        rates,
+        ml_kg_hr
+      ) ~ "{mean} ({sd})",
+      validity ~ "{display_prec}%"
+    ),
+    missing = "no",
+    label = list(
+      count ~ "UO Charted",
+      volumes ~ "Volumes, mean",
+      collection_times ~ "Collection Times, mean",
+      validity ~ "Validity, %",
+      rates ~ "Rates, mean",
+      ml_kg_hr ~ "Rate to Weight, mean"
+    )
+  ) %>%
+  add_n() %>%
+  bold_labels()
+
+tbl_stack(list(t1a, t1b),
+          group_header = c("ICU Stay", "UO Charting"))
 ```
 
 \ 
@@ -1047,7 +1098,7 @@ ggplot(aes(x=CREAT_BASLINE_DIFF)) +
 ```
 
 ```{r}
-aki_creat_analysis %>% 
+creat_plot_a <- aki_creat_analysis %>% 
   filter(PEAK_UO_STAGE == 3,
          AKI_TO_CREAT >= -24,
          AKI_TO_CREAT <= 48) %>%
@@ -1077,7 +1128,7 @@ ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_DIFF)) +
 ```
 
 ```{r}
-aki_creat_analysis %>% 
+creat_plot_b <- aki_creat_analysis %>% 
   filter(PEAK_UO_STAGE == 3,
          AKI_TO_CREAT >= -24,
          AKI_TO_CREAT <= 48) %>%
@@ -1098,6 +1149,14 @@ ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_RATIO)) +
     theme(legend.position = "bottom",
           plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
           plot.subtitle = element_text(size = 10, face = "bold"))
+```
+
+```{r}
+ggarrange(creat_plot_a, creat_plot_b,
+                    labels = c("a", "b"),
+                    ncol = 1, nrow = 2) %>%
+  annotate_figure(top = text_grob("Change in Serum Creatinine Levels", 
+               color = "#0099F8", face = "bold", size = 16, hjust = 0.9))
 ```
 
 ------------------------------------------------------------------------
