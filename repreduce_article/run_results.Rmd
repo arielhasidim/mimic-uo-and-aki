@@ -836,8 +836,7 @@ ggplot() +
 ------------------------------------------------------------------------
 
 # Performance analysis
-## First Oliguric-AKI Events
-Number of identified first oliguric-AKI events in hospitalization stratified by maximum stage:
+
 ```{r}
 akis_excluded <- akis %>%
   filter(NO_START == 0,
@@ -880,6 +879,63 @@ aki_creat_analysis <- left_join(akis_excluded, creat_diff %>% select(-STAY_ID), 
                                    units = c("mins"))) / 60) %>%
   filter(AKI_TO_CREAT >= -72 & AKI_TO_CREAT <= 72)
 ```
+
+# Prevalence of AKI among ICU stays:
+
+showing:
+
+1. ICU stays with identified oliguric AKI events by UO analysis
+2. Total eligible ICU stays
+3. The proportion of 1 out for 2
+
+```{r}
+akis %>% 
+  select(STAY_ID) %>% 
+  n_distinct()
+
+nrow(table_1)
+
+akis %>% 
+  select(STAY_ID) %>% 
+  n_distinct() / nrow(table_1)
+```
+
+Number and proportion of ICU stays with identified oliguric AKI events by UO analysis out of total eligible ICU stays with breakdown for maximum KDIGO-UO stage: 
+
+```{r}
+icu_stays_3rd_stage <- akis %>% 
+  filter(PEAK_UO_STAGE == 3) %>%
+  select(STAY_ID) %>%
+  distinct_all()
+icu_stays_3rd_stage %>% 
+  n_distinct()
+icu_stays_3rd_stage %>% 
+  n_distinct() / nrow(table_1)
+
+icu_stays_2nd_stage <- akis %>% 
+  filter(PEAK_UO_STAGE == 2,
+         !(STAY_ID %in% icu_stays_3rd_stage$STAY_ID)) %>%
+  select(STAY_ID) %>%
+  distinct_all()
+icu_stays_2nd_stage %>% 
+  n_distinct()
+icu_stays_2nd_stage %>% 
+  n_distinct() / nrow(table_1)
+
+icu_stays_1st_stage <- akis %>% 
+  filter(PEAK_UO_STAGE == 1,
+         !(STAY_ID %in% icu_stays_3rd_stage$STAY_ID),
+         !(STAY_ID %in% icu_stays_2nd_stage$STAY_ID)) %>%
+  select(STAY_ID) %>%
+  distinct_all()
+icu_stays_1st_stage %>% 
+  n_distinct()
+icu_stays_1st_stage %>% 
+  n_distinct() / nrow(table_1)
+```
+
+## First Oliguric-AKI Events
+Number of identified first oliguric-AKI events in hospitalization stratified by maximum stage:
 
 ```{r}
 akis_excluded %>%
