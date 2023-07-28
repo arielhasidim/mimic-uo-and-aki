@@ -850,6 +850,54 @@ ggplot(aes(x = HOURLY_VALID_WEIGHTED_MEAN_RATE)) +
 adj_uo_diff <- hourly_uo %>%
   select(HOURLY_VALID_WEIGHTED_MEAN_RATE, SIMPLE_SUM) %>%
   filter(!is.na(HOURLY_VALID_WEIGHTED_MEAN_RATE)) %>%
+  mutate(hourly_diff = abs(HOURLY_VALID_WEIGHTED_MEAN_RATE - SIMPLE_SUM)) %>%
+  mutate(
+    cutoff_10 = if_else(hourly_diff < 10, 1, 0),
+    cutoff_50 = if_else(hourly_diff < 50, 1, 0),
+    cutoff_100 = if_else(hourly_diff < 100, 1, 0),
+    cutoff_150 = if_else(hourly_diff < 150, 1, 0),
+    cutoff_200 = if_else(hourly_diff < 200, 1, 0)
+  )
+
+my_order <- c("<10", "<50", "<100", "<150", "<200")
+
+adj_uo_diff %>%
+  select(cutoff_10,
+         cutoff_50,
+         cutoff_100,
+         cutoff_150,
+         cutoff_200) %>%
+  pivot_longer(cols = contains("cutoff")) %>%
+  transmute(name = case_when(
+    name == "cutoff_10" ~ "<10",
+    name == "cutoff_50" ~ "<50",
+    name == "cutoff_100" ~ "<100",
+    name == "cutoff_150" ~ "<150",
+    name == "cutoff_200" ~ "<200"
+  ),
+  value) %>%
+  group_by(name) %>%
+  summarise(agreement = paste0(round(mean(value) * 100, 1), "%"),
+            non_agreement = paste0(round((1 - mean(
+              value
+            )) * 100, 1), "%")) %>%
+  arrange(match(name, my_order)) %>%
+  gt() %>%
+  tab_header(
+    title = md("**Comparison of Hourly-Adjusted UO and Simple Summation**"),
+  ) %>%
+  cols_label(
+    name = "Cut-off (ml)",
+    agreement = "Portion of Agreement",
+    non_agreement = "Portion of Disagreement"
+  ) %>%
+  cols_align(
+    align = "center"
+  )
+
+adj_uo_diff <- hourly_uo %>%
+  select(HOURLY_VALID_WEIGHTED_MEAN_RATE, SIMPLE_SUM) %>%
+  filter(!is.na(HOURLY_VALID_WEIGHTED_MEAN_RATE)) %>%
   mutate(no_diff = 
            ifelse((is.na(HOURLY_VALID_WEIGHTED_MEAN_RATE) &
                   is.na(SIMPLE_SUM)) |
