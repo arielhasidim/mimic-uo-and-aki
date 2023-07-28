@@ -609,6 +609,24 @@ count_uo_zero_vs_all %>%
          plot.subtitle = element_text(size = 10, face = "bold"),
          plot.caption = element_text(face = "italic")
        )
+```{r}
+uo_rate_0 <- uo_rate %>% filter(VALUE == 0) 
+S2_d <- uo_rate_0 %>% group_by(SOURCE) %>%
+  dplyr::summarise(N = n(),
+                   Mean = round(mean(TIME_INTERVAL),0),
+                   SD = round(sd(TIME_INTERVAL),0),
+                   '25th' = round(quantile(TIME_INTERVAL, 0.25),0),
+                   '50th' = round(quantile(TIME_INTERVAL, 0.50),0),
+                   '75th' = round(quantile(TIME_INTERVAL, 0.75),0),
+                   '95th' = round(quantile(TIME_INTERVAL, 0.95),0),
+                   Min = round(min(TIME_INTERVAL),0),
+                   Max = round(max(TIME_INTERVAL),0)
+  ) %>% 
+  arrange(desc(N)) %>% 
+  gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 0)
+
+S2_d
 ```
 
 ------------------------------------------------------------------------
