@@ -127,7 +127,6 @@ n_distinct(raw_uo$STAY_ID)
 
 ```{r}
 hourly_uo %>% 
-  drop_na(HOURLY_VALID_WEIGHTED_MEAN_RATE) %>%
   nrow() / 24
 ```
 
