@@ -406,16 +406,16 @@ t1a <- table_1 %>%
       hospital_expire_flag ~ "Mortality"
     )
   ) %>%
-  add_n() %>%
-  bold_labels()
+  add_n() 
 
-display_prec <- function(x) mean(x)*100
+display_prec <- function(x)
+  mean(x) * 100
 
 t1b <- uo_for_table1 %>%
   select(count,
          volumes,
-         collection_times,
          validity,
+         collection_times,
          rates,
          ml_kg_hr) %>%
   tbl_summary(
@@ -427,14 +427,13 @@ t1b <- uo_for_table1 %>%
         validity) ~ "continuous"
     ),
     statistic = list(
-      c(
-        volumes,
+      c(volumes,
         collection_times,
         rates,
-        ml_kg_hr
-      ) ~ "{mean} ({sd})",
+        ml_kg_hr) ~ "{mean} ({sd})",
       validity ~ "{display_prec}%"
     ),
+    digits = list(validity ~ 0),
     missing = "no",
     label = list(
       count ~ "Number of Measurements",
@@ -445,25 +444,45 @@ t1b <- uo_for_table1 %>%
       ml_kg_hr ~ "Average Rate to Weight, mL/hr/kg"
     )
   ) %>%
-  add_n() %>%
-  bold_labels()
+  add_n() 
 
 t1c <- tbl1_aki %>%
   select(aki_binary,
          aki_count,
-         max_stage) %>%
+         max_stage,
+         aki_portion,
+         aki_mean_duration,
+         aki_total_time
+         ) %>%
   tbl_summary(
+    type = list(c(aki_mean_duration,
+                  aki_total_time) ~ "continuous"),
+    statistic =
+      list(
+        c(aki_mean_duration,
+          aki_total_time) ~ "{mean} ({sd})",
+        aki_portion ~ "{display_prec}%"
+      ),
+    digits = list(aki_portion ~ 0),
     label = list(
       aki_binary ~ "ICU stays with AKI",
-      aki_count ~ "Number of AKIs in ICU stay",
-      max_stage ~ "Maximal KDIGO-UO Stage"
-    )
+      aki_count ~ "Number of AKIs in ICU Stay",
+      max_stage ~ "Maximal KDIGO-UO Stage",
+      aki_mean_duration ~ "Average AKI Duration, hours",
+      aki_total_time ~ "Total Time in AKI, days",
+      aki_portion ~ "Proportion of time in AKI, mean"
+    ),
+    missing = "no"
   ) %>%
-  add_n() %>%
-  bold_labels()
+  add_n() 
 
-tbl_stack(list(t1a, t1b, t1c),
-          group_header = c("ICU Stay", "UO Charting Across ICU Stay", "AKI across ICU Stay"))
+tbl_stack(
+  list(t1a, t1b, t1c),
+  group_header = c("ICU Stay", "UO Charting Across ICU Stay", "AKI across ICU Stay")
+) %>%
+  as_gt() %>%
+  tab_source_note(source_note = "The variables age at hospital admission, gender, CCI, CKD, ethnicity, time in hospital, and mortality are measured for each hospital admission and might be counted for more than one ICU stay. All other variables are measured individually for each ICU stay. The variables average collection times, average rates, and average rate to weight are only presented for ICU stays with at least two UO measurements for the same compartment, and the latter also required weight at admission. AKI variables were presented for ICU stays with at least one hour with a non-null KDIGO-UO stage. The variables average AKI duration and total time in AKI were specifically reported for ICU stays with at least one AKI event.") %>%
+  tab_source_note(source_note = "AKI: Acute Kidney Injury; CCI: Charlson Comorbidity Index; CKD Stage 1-4: Chronic Kidney Disease excluding end-stage-renal-disease; ICU: Intensive Care Unit; KDIGO: Kidney Disease: Improving Global Outcomes; SOFA: Sequential Organ Failure Assessment; UO: Urine Output.")
 ```
 
 \ 
