@@ -21,7 +21,7 @@ load("s_data.Rda")
 
 \newpage
 
-# S1 - Duplication analysis
+# S1 - Duplication Analysis
 First, we verified that all UO charting for each patient is distinct by its item and chart time (`all rows`: `r all_rows_count` = `distinct rows`: `r distinct_time_item_patient_rows_count`). This means that there are no duplicate records for a single patient simultaneously from the same source (without accounting for its volume). Subsequently, a duplication analysis was conducted. To do this, we compiled all the cases of UO measurements documented simultaneously for the same patient from different sources. We then checked for potential errors in record-keeping by verifying whether the values were consistent. We found that most of the records had different values, indicating that duplicate record-keeping errors were unlikely. There were 12,569 documented duplicates, out of which 518 had the same volume. 
 
 The most common duplicate entry was GU irrigation IN and OUT, which had 5,347 records, accounting for 44.5% of the 12,569 duplicates. These GU irrigants were excluded from our research. We also observed many duplicate entries in combination with nephrostomy, Ileoconduit, and urethral stent. Based on this analysis, we concluded that there are a total of four potential physiologic compartments for the accumulation and drainage of urine output that can be measured. This means that when we assume that the output events occurred "back-to-back" to determine that the collection period is equal to the time interval from the last chart time, we must examine each compartment individually.
