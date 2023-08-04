@@ -567,7 +567,10 @@ uo_rate %>% group_by(SOURCE) %>%
   ) %>% 
   arrange(desc(N)) %>% 
   gt() %>%
-  fmt_number(use_seps = TRUE, decimals = 0)
+  fmt_number(use_seps = TRUE, decimals = 0) %>%
+  tab_source_note(
+    source_note = "The table displays statistical values for all included UO measurements, categorized by their sources, in minutes."
+  )
 ```
 
 Collection Periods:
@@ -963,17 +966,18 @@ adj_uo_diff %>%
             )) * 100, 1), "%")) %>%
   arrange(match(name, my_order)) %>%
   gt() %>%
-  tab_header(
-    title = md("**Comparison of Hourly-Adjusted UO and Simple Summation**"),
-  ) %>%
+  # tab_header(
+  #   title = md("**Comparison of Hourly-Adjusted UO and Simple Summation**"),
+  # ) %>%
   cols_label(
     name = "Cut-off (ml)",
-    agreement = "Portion of Agreement",
-    non_agreement = "Portion of Disagreement"
+    agreement = "Proportion  of Agreement",
+    non_agreement = "Proportion  of Disagreement"
   ) %>%
   cols_align(
     align = "center"
-  )
+  ) %>%
+  tab_source_note(source_note = "The table demonstrates the significance of hourly adjustment for accuracy by presenting the variance between the adjusted values and the simple hourly summation. Cut-off values are based on the absolute difference between the hourly-adjusted UO and a simple hourly summation of UO. Measurements charted on the hour were included with the previous time interval. ")
 
 adj_uo_diff <- hourly_uo %>%
   select(HOURLY_VALID_WEIGHTED_MEAN_RATE, SIMPLE_SUM) %>%
@@ -1088,60 +1092,6 @@ aki_creat_analysis <- left_join(akis_excluded, creat_diff %>% select(-STAY_ID), 
                                    AKI_START, 
                                    units = c("mins"))) / 60) %>%
   filter(AKI_TO_CREAT >= -72 & AKI_TO_CREAT <= 72)
-```
-
-# Prevalence of AKI among ICU stays:
-
-showing:
-
-1. ICU stays with identified oliguric AKI events by UO analysis
-2. Total eligible ICU stays
-3. The proportion of 1 out for 2
-
-```{r}
-akis %>% 
-  select(STAY_ID) %>% 
-  n_distinct()
-
-nrow(icus_with_valid_kdigo_uo)
-
-akis %>% 
-  select(STAY_ID) %>% 
-  n_distinct() / nrow(icus_with_valid_kdigo_uo)
-```
-
-Number and proportion of ICU stays with identified oliguric AKI events by UO analysis out of total eligible ICU stays with breakdown for maximum KDIGO-UO stage: 
-
-```{r}
-icu_stays_3rd_stage <- akis %>% 
-  filter(PEAK_UO_STAGE == 3) %>%
-  select(STAY_ID) %>%
-  distinct_all()
-icu_stays_3rd_stage %>% 
-  n_distinct()
-icu_stays_3rd_stage %>% 
-  n_distinct() / nrow(icus_with_valid_kdigo_uo)
-
-icu_stays_2nd_stage <- akis %>% 
-  filter(PEAK_UO_STAGE == 2,
-         !(STAY_ID %in% icu_stays_3rd_stage$STAY_ID)) %>%
-  select(STAY_ID) %>%
-  distinct_all()
-icu_stays_2nd_stage %>% 
-  n_distinct()
-icu_stays_2nd_stage %>% 
-  n_distinct() / nrow(icus_with_valid_kdigo_uo)
-
-icu_stays_1st_stage <- akis %>% 
-  filter(PEAK_UO_STAGE == 1,
-         !(STAY_ID %in% icu_stays_3rd_stage$STAY_ID),
-         !(STAY_ID %in% icu_stays_2nd_stage$STAY_ID)) %>%
-  select(STAY_ID) %>%
-  distinct_all()
-icu_stays_1st_stage %>% 
-  n_distinct()
-icu_stays_1st_stage %>% 
-  n_distinct() / nrow(icus_with_valid_kdigo_uo)
 ```
 
 ## First Oliguric-AKI Events
