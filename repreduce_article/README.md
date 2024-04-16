@@ -1,6 +1,6 @@
 # Repreducing Study's Results
 
-The code above is used to repreduce derivation cohort results for the *Method for computerized standardization of arbitrary urinary output charting for the diagnosis of AKI: A derivation-validation proof of concept study using two multicenter databases* (DOI: [XX]()) study.
+The code above is used to repreduce the derivation cohort results for the *Method for computerized standardization of arbitrary urinary output charting for the diagnosis of AKI: A derivation-validation proof of concept study using two multicenter databases* (DOI: [XX]()) study.
 
 ## Instructions
 
@@ -9,7 +9,6 @@ The results are generated in R-markdown, which requires [R and Rstudio](https://
 **Prerequisites:**
 1. Follow the `create_data/...` instructions to complete all steps and create all associated tables
 2. The repo should already be cloned to your local machine
-3. "Run results" should be done before creating the "Supplemental materials"
 
 **Steps for running results:**
 1. Open the `repreduce_article/reproduce_article.Rproj` project
