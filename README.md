@@ -37,7 +37,7 @@ This repository has two main objectives:
     - Have MIMIC BigQuery (cloud) access (see ['Getting Started/Cloud](https://mimic.mit.edu/docs/gettingstarted/cloud/)' tutorial )
  - You will need a Google Cloud Platform (GCS) billing account to run the queries.
  - The SQL queries are written in GoogleSQL dialect (formally known as "Standard-SQL" dialect) and is probably compatible with other common dialects.
- - The code was tested on MIMIC-IV 2.4
+ - The code was tested on MIMIC-IV 2.4.
 
 
 ## Example
