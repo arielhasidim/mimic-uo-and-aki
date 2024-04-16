@@ -41,7 +41,6 @@ or <kbd>Ctrl</kbd> + <kbd>⏎ Enter</kbd>)
 | WEIGHT      | FLOAT    | Admission weight                                                  |
 | AKI_START   | DATETIME | Date and time for AKI onset                                       |
 | AKI_STOP    | DATETIME | Date and time for AKI resolution                                  |
-| AKI_TYPE    | INTEGER  | Type by KDIGO criteria; 1 for UO event, 2 for sCr event           |
 | NO_START    | INTEGER  | Has there been identification of a shift from KDIGO stage 0 to >0 |
 | NO_END      | INTEGER  | Has there been identification of a shift from KDIGO stage >0 to 0 |
 | WORST_STAGE | INTEG    | The worst KDIGO stage in the event by AKI type                    |
