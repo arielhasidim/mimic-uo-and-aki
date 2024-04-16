@@ -13,7 +13,9 @@ This repository accompanies the article: *"Method for computerized standardizati
 
 ## Introduction
 
-Accurate diagnosis and analysis of oliguric-AKI relies on timely UO charting. However, charting is often limited by irregular collection intervals, inadequate charting practices, and overlooked urine accumulation compartments. We aimed to establish a method for standardizing hourly UO using real-life charting data and to examine whether this method can identify oliguric-AKI. We also aimed to validate the method externally. The model described, based on simple charting, can be used across the board for oliguric-AKI research. It can be utilized to detect the onset and resolution of AKI events, label AKI stages, and summate fluid balance in an hourly resolution. It may serve to analyze publicly available DBs and data sourced from standard EHRs as well as custom-made data in Excel tables. 
+Accurate diagnosis and analysis of oliguric-AKI relies on timely UO charting. However, charting is often limited by irregular collection intervals, inadequate charting practices, and overlooked urine accumulation compartments. We aimed to establish a method for standardizing hourly UO using real-life charting data and to examine whether this method can identify oliguric-AKI. We also aimed to validate the method externally. 
+
+The model described, based on simple charting, can be used across the board for oliguric-AKI research. It can be utilized to detect the onset and resolution of AKI events, label AKI stages, and summate fluid balance in an hourly resolution. It may serve to analyze publicly available DBs and data sourced from standard EHRs as well as custom-made data in Excel tables. 
 
 This repository is addressing the derivation cohort. 
 
