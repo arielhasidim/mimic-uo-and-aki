@@ -1,7 +1,7 @@
 # MIMIC-IV hourly-adjusted urine output and AKI analysis
 
 SQL queries and R workflow to create datasets for hourly-adjusted urine output (UO) and AKI events as well as the original research results from the [MIMIC critical care database](https://mimic.mit.edu). 
-This repository accompanies the *Scientific Data article: "From Arbitrary Charting to Precise Hourly Urine Rates and AKI Staging: A Comprehensive ICU Database Analysis"*.
+This repository accompanies the article: *"Method for computerized standardization of arbitrary urinary output charting for the diagnosis of AKI: A derivation-validation proof of concept study using two multicenter databases"*.
 
 ## Table of contents
 
@@ -13,9 +13,11 @@ This repository accompanies the *Scientific Data article: "From Arbitrary Charti
 
 ## Introduction
 
-The accuracy and consistency of urine output analyses are limited by various sources of urine output and irregular collection intervals during hospitalization. In this study, we proposed a methodology for systematically correcting charted urine output records to obtain hourly-adjusted UO rates in over 70,000 ICU stays with near-total hourly availability (99.3%) across 94.9% of the ICU stays in the MIMIC database. Furthermore, we demonstrated high data consistency under thorough and conservative analyses, thus providing a reliable platform for investigating hypotheses related to UO changes in the future. In addition to the high temporal resolution, the proposed method significantly improves accuracy; specifically, 45% of the calculated hours showed a difference of 100 ml or more compared to a simple hourly volume summation.
+Accurate diagnosis and analysis of oliguric-AKI relies on timely UO charting. However, charting is often limited by irregular collection intervals, inadequate charting practices, and overlooked urine accumulation compartments. We aimed to establish a method for standardizing hourly UO using real-life charting data and to examine whether this method can identify oliguric-AKI. We also aimed to validate the method externally. The model described, based on simple charting, can be used across the board for oliguric-AKI research. It can be utilized to detect the onset and resolution of AKI events, label AKI stages, and summate fluid balance in an hourly resolution. It may serve to analyze publicly available DBs and data sourced from standard EHRs as well as custom-made data in Excel tables. 
 
-Our protocol can be utilized to detect the onset and resolution of AKI events, label AKI stages, and accurately summate fluid balance at any given time frame with hourly resolution. Given the similar characteristics, our proposed protocol is highly adaptable for use with any other ICU-EHR-based database. We firmly believe that our study and protocol address a relevant issue and will serve as a platform for future AKI and fluid overload research, guideline drafting, and the creation of real-time decision-making tools.
+This repository is addressing the derivation cohort. 
+
+For the validation cohort see: https://github.com/arielhasidim/aumc-uo-and-aki
 
 ## Main Objectives and Structure
 
@@ -23,7 +25,7 @@ This repository has two main objectives:
 
 1. **Enable the creation of hourly-adjusted UO and AKI events tables** - For further instructions visit: `create_data/...`.
 
-2. **Enable the reproduction of the associtate Scientific Data article.** - For further instructions visit: `repreduce_article/...`.
+2. **Enable the reproduction of the associtated article** - For further instructions visit: `repreduce_article/...`.
 
 ## Requirements and Compatability
 
@@ -38,7 +40,7 @@ This repository has two main objectives:
 
 ## Example
 
-After creating all the tables and repreducing the associated study, you should end up with a [result page in HTML format](https://defi.co.il/ariel/mimic/).
+After creating all the tables and repreducing the associated study, you should end up with a result page in HTML format: https://arielhasidim.github.io/mimic-uo-and-aki.
 
 ## Citation
 
