@@ -1,6 +1,6 @@
 # Repreducing Study's Results
 
-The code above is used to repreduce results for the [*From Arbitrary Charting to Precise Hourly Urine Rates and AKI Staging: A Comprehensive ICU Database Analysis*]() study.
+The code above is used to repreduce derivation cohort results for the *Method for computerized standardization of arbitrary urinary output charting for the diagnosis of AKI: A derivation-validation proof of concept study using two multicenter databases* (DOI: [XX]()) study.
 
 ## Instructions
 
@@ -21,7 +21,3 @@ The results are generated in R-markdown, which requires [R and Rstudio](https://
     - The billing-account/project-id should be the same one used to create the associated tables
 5. Start "knitting"
     - This may take a while, mainly querying the data on the cloud and running the quantile analysis for low UO rates
-  
-**Steps for creating "Supplemental materials":**
-1. Open the `supplementary_materials.Rmd` in the `repreduce_article/reproduce_article.Rproj` R session
-2. Start "knitting"
