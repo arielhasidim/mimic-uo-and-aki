@@ -32,6 +32,16 @@ WHERE
     GROUP BY
       STAY_ID
   )
+  AND STAY_ID NOT IN (
+        SELECT
+            STAY_ID
+        FROM
+            `physionet-data.mimiciv_icu.outputevents`
+        WHERE
+            ITEMID IN (226558, 226557) -- Urethral stent
+        GROUP BY
+            STAY_ID
+    )
   AND STAY_ID IN (
     SELECT
       STAY_ID

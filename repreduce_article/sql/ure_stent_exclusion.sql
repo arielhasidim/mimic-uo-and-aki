@@ -32,16 +32,6 @@ WHERE
         GROUP BY
             STAY_ID
     )
-    AND STAY_ID NOT IN (
-        SELECT
-            STAY_ID
-        FROM
-            `physionet-data.mimiciv_icu.outputevents`
-        WHERE
-            ITEMID IN (227488, 227489) --GU irrigation
-        GROUP BY
-            STAY_ID
-    )
     AND STAY_ID IN (
         SELECT
             STAY_ID

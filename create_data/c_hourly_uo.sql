@@ -92,13 +92,13 @@ WITH
         GREATEST(b.LAST_CHARTTIME, a.TIME_INTERVAL_STARTS),
         MINUTE
       ) / 60 PROPORTION,
-      b.VALIDITY,
       b.SOURCE
     FROM
       TIMES_WITH_INTERVALS a
       LEFT JOIN `mimic_uo_and_aki.b_uo_rate` b ON b.STAY_ID = a.STAY_ID
       AND b.CHARTTIME > a.TIME_INTERVAL_STARTS
       AND b.LAST_CHARTTIME < a.TIME_INTERVAL_FINISH
+      AND b.VALIDITY IS TRUE
   ),
   -- summing up rated per each hour by its proportion only if valid
   CALCULATION AS (
@@ -123,8 +123,6 @@ WITH
       ) / 60 AS PROPORTION_COVERED
     FROM
       INTERVALS_WITH_RATES
-    WHERE
-      VALIDITY = TRUE
     GROUP BY
       STAY_ID,
       T_PLUS,

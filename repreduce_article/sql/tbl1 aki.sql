@@ -18,4 +18,12 @@ SELECT kdigo.stay_id,
 FROM kdigo
 LEFT JOIN `mimic_uo_and_aki.e_aki_analysis` a
   ON a.STAY_ID = kdigo.stay_id
+WHERE kdigo.STAY_ID IN (
+        SELECT 
+            STAY_ID
+        FROM
+            `mimic_uo_and_aki.b_uo_rate`
+        WHERE
+            TIME_INTERVAL IS NOT NULL
+    )
 GROUP BY kdigo.stay_id, kdigo.max_stage, kdigo.aki_binary, kdigo.aki_portion

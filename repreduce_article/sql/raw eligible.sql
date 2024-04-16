@@ -17,7 +17,7 @@ WITH stays_services AS (
       a.STAY_ID
   )
 SELECT
-  COUNT(STAY_ID) UO_records
+  *
 FROM
   `mimic_uo_and_aki.a_urine_output_raw`
 WHERE

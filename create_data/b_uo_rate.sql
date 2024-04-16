@@ -11,6 +11,7 @@ WITH uo_with_intervals_sources_and_weight AS (
             a.VALUE,
             a.CHARTTIME,
             a.ITEMID,
+            a.SERVICE,
             c.LABEL,
             MAX(b.CHARTTIME) AS LAST_CHARTTIME,
             (
@@ -39,25 +40,8 @@ WITH uo_with_intervals_sources_and_weight AS (
             a.ITEMID,
             c.LABEL,
             w.WEIGHT_ADMIT,
-            w.WEIGHT
-    ),
-    stays_services AS (
-        -- Adding ICU type by looking into services
-        SELECT
-            a.STAY_ID,
-            ARRAY_AGG(
-                c.curr_service
-                ORDER BY
-                    c.transfertime DESC
-                LIMIT
-                    1
-            ) [OFFSET(0)] AS SERVICE
-        FROM
-            `mimic_uo_and_aki.a_urine_output_raw` a
-            LEFT JOIN `physionet-data.mimiciv_hosp.services` c ON c.hadm_id = a.HADM_ID
-            AND c.transfertime < DATETIME_ADD(a.CHARTTIME, INTERVAL 1 HOUR)
-        GROUP BY
-            a.STAY_ID
+            w.WEIGHT,
+            a.SERVICE
     ),
     excluding AS (
         -- excluding unreliable ICU stays
@@ -69,7 +53,8 @@ WITH uo_with_intervals_sources_and_weight AS (
             CHARTTIME,
             LAST_CHARTTIME,
             TIME_INTERVAL,
-            WEIGHT_ADMIT
+            WEIGHT_ADMIT,
+            SERVICE
         FROM
             uo_with_intervals_sources_and_weight
         WHERE
@@ -89,28 +74,21 @@ WITH uo_with_intervals_sources_and_weight AS (
             AND VALUE >= 0
             AND VALUE < 5000
             -- ICU stay type inclusion by service
-            AND STAY_ID IN (
-                SELECT
-                    STAY_ID
-                FROM
-                    stays_services
-                WHERE
-                    SERVICE IN (
-                        'MED',
-                        'TSURG',
-                        'CSURG',
-                        'CMED',
-                        'NMED',
-                        'OMED',
-                        'TRAUM',
-                        'SURG',
-                        'NSURG',
-                        'ORTHO',
-                        'VSURG',
-                        'ENT',
-                        'PSURG',
-                        'GU'
-                    )
+            AND SERVICE IN (
+                'MED',
+                'TSURG',
+                'CSURG',
+                'CMED',
+                'NMED',
+                'OMED',
+                'TRAUM',
+                'SURG',
+                'NSURG',
+                'ORTHO',
+                'VSURG',
+                'ENT',
+                'PSURG',
+                'GU'
             )
     ),
     interval_precentiles_approx AS (
@@ -172,12 +150,9 @@ WITH uo_with_intervals_sources_and_weight AS (
                 AND a.SOURCE LIKE "%Nephrostomy"
             )
     )
-
--- Hourly rate is finally calculated
+    -- Hourly rate is finally calculated
 SELECT
     a.*,
-    VALUE / (TIME_INTERVAL / 60) AS HOURLY_RATE,
-    s.SERVICE
+    VALUE / (TIME_INTERVAL / 60) AS HOURLY_RATE
 FROM
     added_validity a
-    LEFT JOIN stays_services s ON s.stay_id = a.stay_id
