@@ -1556,7 +1556,7 @@ save(all_rows_count,
 
 # Performance analysis
 
-describing the prevalnce of oliguric-AKI upon admission
+Describing the prevalence of oliguric-AKI upon admission and incidence at the first ICU day
 
 ```{r}
 aki_epi %>%
@@ -1803,7 +1803,7 @@ ggplot(aes(x=CREAT_BASLINE_DIFF)) +
     geom_histogram(binwidth = 0.1)
 ```
 
-**Number of events for creatinine analysis by max staging:**:
+**Number of events for creatinine analysis by max staging:**
 ```{r}
 print("Stage 1:")
 aki_creat_analysis %>% 
