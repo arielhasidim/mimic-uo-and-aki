@@ -2,8 +2,8 @@
 .RData
 .Ruserdata
 .Rproj.user
-repreduce_article/run_results_cache
-repreduce_article/run_results_files
+reproduce_article/run_results_cache
+reproduce_article/run_results_files
 run_results.html
 supplementary_materials.pdf
 s_data.Rda
