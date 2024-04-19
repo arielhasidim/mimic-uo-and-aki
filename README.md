@@ -17,7 +17,7 @@ Accurate diagnosis and analysis of oliguric-AKI relies on timely UO charting. Ho
 
 The model described, based on simple charting, can be used across the board for oliguric-AKI research. It can be utilized to detect the onset and resolution of AKI events, label AKI stages, and summate fluid balance in an hourly resolution. It may serve to analyze publicly available DBs and data sourced from standard EHRs as well as custom-made data in Excel tables. 
 
-This repository is addressing the derivation cohort. 
+This repository addresses the derivation cohort. 
 
 For the validation cohort see: https://github.com/arielhasidim/aumc-uo-and-aki
 
@@ -36,13 +36,13 @@ This repository has two main objectives:
     - Become a credentialed user on [PhysioNet](https://physionet.org) and sign the use agreement (see ['Getting Started'](https://mimic.mit.edu/docs/gettingstarted/) tutorial).
     - Have MIMIC BigQuery (cloud) access (see ['Getting Started/Cloud](https://mimic.mit.edu/docs/gettingstarted/cloud/)' tutorial )
  - You will need a Google Cloud Platform (GCS) billing account to run the queries.
- - The SQL queries are written in GoogleSQL dialect (formally known as "Standard-SQL" dialect) and is probably compatible with other common dialects.
+ - The SQL queries are written in GoogleSQL dialect (formally known as "Standard-SQL" dialect) and are probably compatible with other common dialects.
  - The code was tested on MIMIC-IV 2.4.
 
 
 ## Example
 
-After creating all the tables and repreducing the associated study, you should end up with a result page in HTML format: https://arielhasidim.github.io/mimic-uo-and-aki.
+After creating all the tables and reproducing the associated study, you should end up with a result page in HTML format: https://arielhasidim.github.io/mimic-uo-and-aki.
 
 ## Citation
 
