@@ -9,11 +9,11 @@ The code above is used to create hourly-adjusted UO tables for each ICU stay in 
 Steps:
 1. Clone the repo to your local machine
 2. Open the `create_data/R workflow/R workflow.Rproj` project
-3. In the R session, the `code.R` file should open automaticlly (if not - open it)
+3. In the R session, the `code.R` file should open automatically (if not - open it)
 4. Run the commands one-by-one (with <kbd>⌘ Cmd</kbd> + <kbd>⏎ Return</kbd> 
 or <kbd>Ctrl</kbd> + <kbd>⏎ Enter</kbd>)
     - Pay attention to the instructions in the comments
-6. You will be asked to log in to your Google account and state the associated billing account/poject name
+6. You will be asked to log in to your Google account and state the associated billing account/project name
 
 **NOTE:** Alternativly, all the queries above can be run manually at the BigQuery console consecutively.
 
@@ -28,7 +28,7 @@ or <kbd>Ctrl</kbd> + <kbd>⏎ Enter</kbd>)
 | TIME_INTERVAL_STARTS            | DATETIME | Date and time for index hour onset                             |
 | TIME_INTERVAL_FINISH            | DATETIME | Date and time for index hour end                               |
 | HOURLY_VALID_WEIGHTED_MEAN_RATE | FLOAT    | Valid total hourly urine output                                |
-| SIMPLE_SUM                      | FLOAT    | Simple raw urine output hourly summatio (for testing purposes) |
+| SIMPLE_SUM                      | FLOAT    | Simple raw urine output hourly summation (for testing purposes) |
 | WEIGHT_ADMIT                    | FLOAT    | Patient weight at admission                                    |
 
 ### `mimic_uo_and_aki.e_aki_analysis`:
