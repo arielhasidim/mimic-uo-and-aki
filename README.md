@@ -27,7 +27,7 @@ This repository has two main objectives:
 
 1. **Enable the creation of hourly-adjusted UO and AKI events tables** - For further instructions visit: `create_data/...`.
 
-2. **Enable the reproduction of the associtated article** - For further instructions visit: `repreduce_article/...`.
+2. **Enable the reproduction of the associtated article** - For further instructions visit: `reproduce_article/...`.
 
 ## Requirements and Compatability
 
