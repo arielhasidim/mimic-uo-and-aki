@@ -1807,27 +1807,27 @@ ggplot(aes(x=CREAT_BASLINE_DIFF)) +
 ```{r}
 print("Stage 1:")
 aki_creat_analysis %>% 
-  filter(PEAK_UO_STAGE == 1,
+  filter(MAX_STAGE_NEW_CONS == 1,
          AKI_TO_CREAT >= -24,
          AKI_TO_CREAT <= 48) %>%
-  {n_distinct(.$AKI_ID)}
+  {n_distinct(.$STAY_ID)}
 print("Stage 2:")
 aki_creat_analysis %>% 
-  filter(PEAK_UO_STAGE == 2,
+  filter(MAX_STAGE_NEW_CONS == 2,
          AKI_TO_CREAT >= -24,
          AKI_TO_CREAT <= 48) %>%
-  {n_distinct(.$AKI_ID)}
+  {n_distinct(.$STAY_ID)}
 print("Stage 3:")
 aki_creat_analysis %>% 
-  filter(PEAK_UO_STAGE == 3,
+  filter(MAX_STAGE_NEW_CONS == 3,
          AKI_TO_CREAT >= -24,
          AKI_TO_CREAT <= 48) %>%
-  {n_distinct(.$AKI_ID)}
+  {n_distinct(.$STAY_ID)}
 ```
 
 ```{r}
 creat_plot_a <- aki_creat_analysis %>% 
-  filter(PEAK_UO_STAGE == 1,
+  filter(MAX_STAGE_NEW_CONS == 1,
          AKI_TO_CREAT >= -24,
          AKI_TO_CREAT <= 48) %>%
   mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
@@ -1841,17 +1841,17 @@ ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_DIFF)) +
     stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
     stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
     stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
-    stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
-                   vjust=1.8, aes( label=round(..y.., digits=2))) +
-    # scale_x_discrete(labels=c('-24      ','-18      ','-12      ','-6      ','0      ','6      ','12      ','18      ','24      ','30      ','36      ','42      ','48      ')) +
+    # stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
+    #                vjust=1.8, aes( label=round(..y.., digits=2))) +
+    scale_x_discrete(labels=c('(-24,-18]','','(-12,-6)','','(0,6]','','(12,18]','','(24,30]','','(36,42]','','')) +
+     # scale_x_discrete(labels=c('(-24,-18]','','','','(0,6]','','','','','','','(42,48]')) +
     labs(x="Time to AKI start (hours)", y = "Absolute SCr change(mg/dl)") +
     coord_cartesian(ylim = c(-0.1, 3)) +
     theme_classic() + # remove panel background and gridlines
     theme(legend.position = "bottom",
           plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
           plot.subtitle = element_text(size = 10, face = "bold"),
-          # axis.text.x = element_text(margin = margin(t = 2),
-          #                            hjust="1")
+          axis.text.x = element_text(size = 7)
           )
 
 creat_plot_a
@@ -1859,7 +1859,7 @@ creat_plot_a
 
 ```{r}
 creat_plot_d <- aki_creat_analysis %>% 
-  filter(PEAK_UO_STAGE == 1,
+  filter(MAX_STAGE_NEW_CONS == 1,
          AKI_TO_CREAT >= -24,
          AKI_TO_CREAT <= 48) %>%
   mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
@@ -1871,20 +1871,22 @@ ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_RATIO)) +
     stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
     stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
     stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
-    stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
-                   vjust=1.8, aes( label=round(..y.., digits=2))) +
+    # stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
+    #                vjust=1.8, aes( label=round(..y.., digits=2))) +
+      scale_x_discrete(labels=c('(-24,-18]','','(-12,-6)','','(0,6]','','(12,18]','','(24,30]','','(36,42]','','')) +
     labs(x="Time to AKI start (hours)", y = "Relative SCr change") +
     coord_cartesian(ylim = c(1.01, 3)) +
     theme_classic() + # remove panel background and gridlines
     theme(legend.position = "bottom",
           plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
-          plot.subtitle = element_text(size = 10, face = "bold"))
+          plot.subtitle = element_text(size = 10, face = "bold"),
+          axis.text.x = element_text(size = 7))
 creat_plot_d
 ```
 
 ```{r}
 creat_plot_b <- aki_creat_analysis %>% 
-  filter(PEAK_UO_STAGE == 2,
+  filter(MAX_STAGE_NEW_CONS == 2,
          AKI_TO_CREAT >= -24,
          AKI_TO_CREAT <= 48) %>%
   mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
@@ -1898,17 +1900,16 @@ ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_DIFF)) +
     stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
     stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
     stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
-    stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
-                   vjust=1.8, aes( label=round(..y.., digits=2))) +
-    # scale_x_discrete(labels=c('-24      ','-18      ','-12      ','-6      ','0      ','6      ','12      ','18      ','24      ','30      ','36      ','42      ','48      ')) +
+    # stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
+    #                vjust=1.8, aes( label=round(..y.., digits=2))) +
+    scale_x_discrete(labels=c('(-24,-18]','','(-12,-6)','','(0,6]','','(12,18]','','(24,30]','','(36,42]','','')) +
     labs(x="Time to AKI start (hours)", y = "Absolute SCr change(mg/dl)") +
     coord_cartesian(ylim = c(-0.1, 3)) +
     theme_classic() + # remove panel background and gridlines
     theme(legend.position = "bottom",
           plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
           plot.subtitle = element_text(size = 10, face = "bold"),
-          # axis.text.x = element_text(margin = margin(t = 2),
-          #                            hjust="1")
+          axis.text.x = element_text(size = 7)
           )
 
 creat_plot_b
@@ -1916,7 +1917,7 @@ creat_plot_b
 
 ```{r}
 creat_plot_e <- aki_creat_analysis %>% 
-  filter(PEAK_UO_STAGE == 2,
+  filter(MAX_STAGE_NEW_CONS == 2,
          AKI_TO_CREAT >= -24,
          AKI_TO_CREAT <= 48) %>%
   mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
@@ -1928,20 +1929,22 @@ ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_RATIO)) +
     stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
     stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
     stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
-    stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
-                   vjust=1.8, aes( label=round(..y.., digits=2))) +
+    # stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
+    #                vjust=1.8, aes( label=round(..y.., digits=2))) +
+      scale_x_discrete(labels=c('(-24,-18]','','(-12,-6)','','(0,6]','','(12,18]','','(24,30]','','(36,42]','','')) +
     labs(x="Time to AKI start (hours)", y = "Relative SCr change") +
     coord_cartesian(ylim = c(1.01, 3)) +
     theme_classic() + # remove panel background and gridlines
     theme(legend.position = "bottom",
           plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
-          plot.subtitle = element_text(size = 10, face = "bold"))
+          plot.subtitle = element_text(size = 10, face = "bold"),
+          axis.text.x = element_text(size = 7))
 creat_plot_e
 ```
 
 ```{r}
 creat_plot_c <- aki_creat_analysis %>% 
-  filter(PEAK_UO_STAGE == 3,
+  filter(MAX_STAGE_NEW_CONS == 3,
          AKI_TO_CREAT >= -24,
          AKI_TO_CREAT <= 48) %>%
   mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
@@ -1955,17 +1958,16 @@ ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_DIFF)) +
     stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
     stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
     stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
-    stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
-                   vjust=1.8, aes( label=round(..y.., digits=2))) +
-    # scale_x_discrete(labels=c('-24      ','-18      ','-12      ','-6      ','0      ','6      ','12      ','18      ','24      ','30      ','36      ','42      ','48      ')) +
+    # stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
+    #                vjust=1.8, aes( label=round(..y.., digits=2))) +
+    scale_x_discrete(labels=c('(-24,-18]','','(-12,-6)','','(0,6]','','(12,18]','','(24,30]','','(36,42]','','')) +
     labs(x="Time to AKI start (hours)", y = "Absolute SCr change(mg/dl)") +
     coord_cartesian(ylim = c(-0.1, 3)) +
     theme_classic() + # remove panel background and gridlines
     theme(legend.position = "bottom",
           plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
           plot.subtitle = element_text(size = 10, face = "bold"),
-          # axis.text.x = element_text(margin = margin(t = 2),
-          #                            hjust="1")
+          axis.text.x = element_text(size = 7)
           )
 
 creat_plot_c
@@ -1973,7 +1975,7 @@ creat_plot_c
 
 ```{r}
 creat_plot_f <- aki_creat_analysis %>% 
-  filter(PEAK_UO_STAGE == 3,
+  filter(MAX_STAGE_NEW_CONS == 3,
          AKI_TO_CREAT >= -24,
          AKI_TO_CREAT <= 48) %>%
   mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
@@ -1985,14 +1987,16 @@ ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_RATIO)) +
     stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
     stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
     stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
-    stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE, 
-                   vjust=1.8, aes( label=round(..y.., digits=2))) +
+    # stat_summary(fun.y=mean, colour="black", geom="text", size=3, show_guide = FALSE,
+    #                vjust=1.8, aes( label=round(..y.., digits=2))) +
+    scale_x_discrete(labels=c('(-24,-18]','','(-12,-6)','','(0,6]','','(12,18]','','(24,30]','','(36,42]','','')) +
     labs(x="Time to AKI start (hours)", y = "Relative SCr change") +
     coord_cartesian(ylim = c(1.01, 3)) +
     theme_classic() + # remove panel background and gridlines
     theme(legend.position = "bottom",
           plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
-          plot.subtitle = element_text(size = 10, face = "bold"))
+          plot.subtitle = element_text(size = 10, face = "bold"),
+          axis.text.x = element_text(size = 7))
 creat_plot_f
 ```
 
@@ -2043,6 +2047,7 @@ temp2 <- ggarrange(
   nrow = 1
 ) 
 
+# save at 6.69x8.86inch
 ggarrange(
   temp1,
   temp2,
