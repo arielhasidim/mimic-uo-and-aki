@@ -1,25 +1,25 @@
 CREATE OR REPLACE TABLE
-  `mimic_uo_and_aki.d1_kdigo_uo` AS
+  `mimic_uo_and_aki.d1_kdigo_uo_9920_temp` AS
 WITH
   uo_6hr AS (
     SELECT
       index_hour.stay_id,
       index_hour.TIME_INTERVAL_FINISH, -- index hour
-      SUM(uo.HOURLY_WEIGHTED_MEAN_RATE) / COUNT(uo.HOURLY_WEIGHTED_MEAN_RATE) AS rt_mean_6hr,
-      MAX(uo.HOURLY_WEIGHTED_MEAN_RATE) AS uo_max_6hr,
-      COUNT(uo.HOURLY_WEIGHTED_MEAN_RATE) AS valid_hrs
+      SUM(uo.HOURLY_VALID_WEIGHTED_MEAN_RATE) / COUNT(uo.HOURLY_VALID_WEIGHTED_MEAN_RATE) AS rt_mean_6hr,
+      MAX(uo.HOURLY_VALID_WEIGHTED_MEAN_RATE) AS uo_max_6hr,
+      COUNT(uo.HOURLY_VALID_WEIGHTED_MEAN_RATE) AS valid_hrs
     FROM
-      `mimic_uo_and_aki.c_hourly_uo` index_hour
+      `mimic_uo_and_aki.c_hourly_uo_9920_temp` index_hour
       -- this join gives all UO measurements over the 6 hours preceding this row
-      LEFT JOIN `mimic_uo_and_aki.c_hourly_uo` uo ON index_hour.stay_id = uo.stay_id
+      LEFT JOIN `mimic_uo_and_aki.c_hourly_uo_9920_temp` uo ON index_hour.stay_id = uo.stay_id
       AND uo.TIME_INTERVAL_FINISH <= index_hour.TIME_INTERVAL_FINISH
       AND uo.TIME_INTERVAL_FINISH >= DATETIME_SUB(
         index_hour.TIME_INTERVAL_FINISH,
         INTERVAL '5' HOUR
       )
-      AND uo.HOURLY_WEIGHTED_MEAN_RATE IS NOT NULL
+      AND uo.HOURLY_VALID_WEIGHTED_MEAN_RATE IS NOT NULL
     WHERE
-      index_hour.HOURLY_WEIGHTED_MEAN_RATE IS NOT NULL
+      index_hour.HOURLY_VALID_WEIGHTED_MEAN_RATE IS NOT NULL
     GROUP BY
       index_hour.stay_id,
       index_hour.TIME_INTERVAL_FINISH
@@ -28,21 +28,21 @@ WITH
     SELECT
       index_hour.stay_id,
       index_hour.TIME_INTERVAL_FINISH, -- index hour
-      SUM(uo.HOURLY_WEIGHTED_MEAN_RATE) / COUNT(uo.HOURLY_WEIGHTED_MEAN_RATE) AS rt_mean_12hr,
-      MAX(uo.HOURLY_WEIGHTED_MEAN_RATE) AS uo_max_12hr,
-      COUNT(uo.HOURLY_WEIGHTED_MEAN_RATE) AS valid_hrs
+      SUM(uo.HOURLY_VALID_WEIGHTED_MEAN_RATE) / COUNT(uo.HOURLY_VALID_WEIGHTED_MEAN_RATE) AS rt_mean_12hr,
+      MAX(uo.HOURLY_VALID_WEIGHTED_MEAN_RATE) AS uo_max_12hr,
+      COUNT(uo.HOURLY_VALID_WEIGHTED_MEAN_RATE) AS valid_hrs
     FROM
-      `mimic_uo_and_aki.c_hourly_uo` index_hour
+      `mimic_uo_and_aki.c_hourly_uo_9920_temp` index_hour
       -- this join gives all UO measurements over the 12 hours preceding this row
-      LEFT JOIN `mimic_uo_and_aki.c_hourly_uo` uo ON index_hour.stay_id = uo.stay_id
+      LEFT JOIN `mimic_uo_and_aki.c_hourly_uo_9920_temp` uo ON index_hour.stay_id = uo.stay_id
       AND uo.TIME_INTERVAL_FINISH <= index_hour.TIME_INTERVAL_FINISH
       AND uo.TIME_INTERVAL_FINISH >= DATETIME_SUB(
         index_hour.TIME_INTERVAL_FINISH,
         INTERVAL '11' HOUR
       )
-      AND uo.HOURLY_WEIGHTED_MEAN_RATE IS NOT NULL
+      AND uo.HOURLY_VALID_WEIGHTED_MEAN_RATE IS NOT NULL
     WHERE
-      index_hour.HOURLY_WEIGHTED_MEAN_RATE IS NOT NULL
+      index_hour.HOURLY_VALID_WEIGHTED_MEAN_RATE IS NOT NULL
     GROUP BY
       index_hour.stay_id,
       index_hour.TIME_INTERVAL_FINISH
@@ -51,21 +51,21 @@ WITH
     SELECT
       index_hour.stay_id,
       index_hour.TIME_INTERVAL_FINISH, -- index hour
-      SUM(uo.HOURLY_WEIGHTED_MEAN_RATE) / COUNT(uo.HOURLY_WEIGHTED_MEAN_RATE) AS rt_mean_24hr,
-      MAX(uo.HOURLY_WEIGHTED_MEAN_RATE) AS uo_max_24hr,
-      COUNT(uo.HOURLY_WEIGHTED_MEAN_RATE) AS valid_hrs
+      SUM(uo.HOURLY_VALID_WEIGHTED_MEAN_RATE) / COUNT(uo.HOURLY_VALID_WEIGHTED_MEAN_RATE) AS rt_mean_24hr,
+      MAX(uo.HOURLY_VALID_WEIGHTED_MEAN_RATE) AS uo_max_24hr,
+      COUNT(uo.HOURLY_VALID_WEIGHTED_MEAN_RATE) AS valid_hrs
     FROM
-      `mimic_uo_and_aki.c_hourly_uo` index_hour
+      `mimic_uo_and_aki.c_hourly_uo_9920_temp` index_hour
       -- this join gives all UO measurements over the 24 hours preceding this row
-      LEFT JOIN `mimic_uo_and_aki.c_hourly_uo` uo ON index_hour.stay_id = uo.stay_id
+      LEFT JOIN `mimic_uo_and_aki.c_hourly_uo_9920_temp` uo ON index_hour.stay_id = uo.stay_id
       AND uo.TIME_INTERVAL_FINISH <= index_hour.TIME_INTERVAL_FINISH
       AND uo.TIME_INTERVAL_FINISH >= DATETIME_SUB(
         index_hour.TIME_INTERVAL_FINISH,
         INTERVAL '23' HOUR
       )
-      AND uo.HOURLY_WEIGHTED_MEAN_RATE IS NOT NULL
+      AND uo.HOURLY_VALID_WEIGHTED_MEAN_RATE IS NOT NULL
     WHERE
-      index_hour.HOURLY_WEIGHTED_MEAN_RATE IS NOT NULL
+      index_hour.HOURLY_VALID_WEIGHTED_MEAN_RATE IS NOT NULL
     GROUP BY
       index_hour.stay_id,
       index_hour.TIME_INTERVAL_FINISH
@@ -87,7 +87,7 @@ SELECT
   uo_24hr.uo_max_24hr,
   uo_24hr.uo_max_24hr / index_hour.WEIGHT_ADMIT AS uo_max_kg_24hr,
 FROM
-  `mimic_uo_and_aki.c_hourly_uo` AS index_hour
+  `mimic_uo_and_aki.c_hourly_uo_9920_temp` AS index_hour
   LEFT JOIN uo_6hr ON uo_6hr.stay_id = index_hour.stay_id
   AND uo_6hr.TIME_INTERVAL_FINISH = index_hour.TIME_INTERVAL_FINISH
   AND uo_6hr.valid_hrs = 6

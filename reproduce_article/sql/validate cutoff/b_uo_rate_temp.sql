@@ -1,6 +1,4 @@
-CREATE OR REPLACE TABLE `mimic_uo_and_aki.b_uo_rate` AS
--- UO rate table with validity according to time interval length and 
--- source (cut-off for 95% precentile)
+CREATE OR REPLACE TABLE `mimic_uo_and_aki.b_uo_rate_temp` AS
 
 WITH uo_with_intervals_sources_and_weight AS (
         -- Raw UO with its source and charttime, preceding charttime in the 
@@ -90,10 +88,65 @@ WITH uo_with_intervals_sources_and_weight AS (
                 'PSURG',
                 'GU'
             )
+    ),
+    interval_precentiles_approx AS (
+        -- Calculating 95th precentile for all and for less than 20ml urine output recoreds by source type
+        SELECT
+            SOURCE,
+            APPROX_QUANTILES(TIME_INTERVAL, 100) [OFFSET(95)] AS percentile95_all,
+            APPROX_QUANTILES(TIME_INTERVAL, 100) [OFFSET(99)] AS percentile99_all,
+            APPROX_QUANTILES(
+                (
+                    CASE
+                        WHEN (VALUE / (TIME_INTERVAL / 60)) <= 20 THEN TIME_INTERVAL
+                    END
+                ),
+                100
+            ) [OFFSET(95)] AS percentile95_20,
+            APPROX_QUANTILES(
+                (
+                    CASE
+                        WHEN (VALUE / (TIME_INTERVAL / 60)) <= 20 THEN TIME_INTERVAL
+                    END
+                ),
+                100
+            ) [OFFSET(99)] AS percentile99_20
+        FROM
+            (
+                SELECT
+                    * EXCEPT (SOURCE),
+                    IF(
+                        SOURCE = "R Nephrostomy"
+                        OR SOURCE = "L Nephrostomy",
+                        "Nephrostomy",
+                        SOURCE
+                    ) AS SOURCE,
+                FROM
+                    excluding
+            )
+        GROUP BY
+            SOURCE
+    ),
+    added_validity AS (
+        -- Adding durations collection prediods precentiles to evalute validity later in a sensetivity analysis Evaluate validity by setting cut-off value for maximal interval time by output source.
+        SELECT
+            a.*,
+            -- Used for sensetivity analysis:
+            b.percentile95_all,
+            b.percentile99_all,
+            b.percentile95_20,
+            percentile99_20
+        FROM
+            excluding a
+            LEFT JOIN interval_precentiles_approx b ON b.SOURCE = a.SOURCE
+            OR (
+                b.SOURCE = "Nephrostomy"
+                AND a.SOURCE LIKE "%Nephrostomy"
+            )
     )
     -- Hourly rate is finally calculated
 SELECT
-    *,
+    a.*,
     VALUE / (TIME_INTERVAL / 60) AS HOURLY_RATE
 FROM
-    excluding
+    added_validity a

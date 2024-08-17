@@ -30,17 +30,3 @@ or <kbd>Ctrl</kbd> + <kbd>⏎ Enter</kbd>)
 | HOURLY_VALID_WEIGHTED_MEAN_RATE | FLOAT    | Valid total hourly urine output                                |
 | SIMPLE_SUM                      | FLOAT    | Simple raw urine output hourly summation (for testing purposes) |
 | WEIGHT_ADMIT                    | FLOAT    | Patient weight at admission                                    |
-
-### `mimic_uo_and_aki.e_aki_analysis`:
-| Field name  | Type     | Description                                                       |
-| ----------- | -------- | ----------------------------------------------------------------- |
-| AKI_ID      | INTEGER  | Unique AKI event ID                                               |
-| SUBJECT_ID  | INTEGER  | Patient ID                                                        |
-| HADM_ID     | INTEGER  | Hospital Admission ID                                             |
-| STAY_ID     | INTEGER  | ICU stay ID                                                       |
-| WEIGHT      | FLOAT    | Admission weight                                                  |
-| AKI_START   | DATETIME | Date and time for AKI onset                                       |
-| AKI_STOP    | DATETIME | Date and time for AKI resolution                                  |
-| NO_START    | INTEGER  | Has there been identification of a shift from KDIGO stage 0 to >0 |
-| NO_END      | INTEGER  | Has there been identification of a shift from KDIGO stage >0 to 0 |
-| WORST_STAGE | INTEG    | The worst KDIGO stage in the event by AKI type                    |

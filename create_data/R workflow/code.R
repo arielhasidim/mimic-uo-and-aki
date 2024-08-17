@@ -49,7 +49,6 @@ dbSendQuery(con, statement = read_file('../c_hourly_uo.sql'))
 dbSendQuery(con, statement = read_file('../d1_kdigo_uo.sql'))
 dbSendQuery(con, statement = read_file('../d2_kdigo_creatinine.sql'))
 dbSendQuery(con, statement = read_file('../d3_kdigo_stages.sql'))
-dbSendQuery(con, statement = read_file('../e_aki_analysis.sql'))
 
 ############################################################
 # CLEAN UP #################################################
