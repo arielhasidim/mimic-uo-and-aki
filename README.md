@@ -1,7 +1,7 @@
 # MIMIC-IV hourly-adjusted urine output and AKI analysis
 
 SQL queries and R workflow to create datasets for hourly-adjusted urine output (UO) and AKI events as well as the original research results from the [MIMIC critical care database](https://mimic.mit.edu). 
-This repository accompanies the article: *"Method for computerized standardization of arbitrary urinary output charting for the diagnosis of AKI: A derivation-validation proof of concept study using two multicenter databases"*.
+This repository accompanies the article: *"Standardizing urine output data for AKI analysis: A multicenter proof of concept study"*.
 
 ## Table of contents
 
@@ -13,9 +13,9 @@ This repository accompanies the article: *"Method for computerized standardizati
 
 ## Introduction
 
-Accurate diagnosis and analysis of oliguric-AKI relies on timely UO charting. However, charting is often limited by irregular collection intervals, inadequate charting practices, and overlooked urine accumulation compartments. We aimed to establish a method for standardizing hourly UO using real-life charting data and to examine whether this method can identify oliguric-AKI. We also aimed to validate the method externally. 
+Accurate diagnosis and analysis of oliguric-AKI relies on timely UO charting. The lack of standardization in handling UO data and the various interpretations of KDIGO-UO guidelines limit the ability to make consistent comparisons and draw general conclusions. We aimed to establish a method for standardizing hourly UO using real-life charting data and to examine whether this method can identify oliguric-AKI. We also aimed to validate the method externally. 
 
-The model described, based on simple charting, can be used across the board for oliguric-AKI research. It can be utilized to detect the onset and resolution of AKI events, label AKI stages, and summate fluid balance in an hourly resolution. It may serve to analyze publicly available DBs and data sourced from standard EHRs as well as custom-made data in Excel tables. 
+The model described, based on simple charting, can be used across the board for oliguric-AKI research. It may serve to analyze publicly available DBs and data sourced from standard EHRs as well as custom-made data in Excel tables. 
 
 This repository addresses the derivation cohort. 
 
