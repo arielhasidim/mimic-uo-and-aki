@@ -1,6 +1,6 @@
 # Repreducing Study's Results
 
-The code above is used to reproduce the derivation cohort results for the *Method for computerized standardization of arbitrary urinary output charting for the diagnosis of AKI: A derivation-validation proof of concept study using two multicenter databases* (DOI: [XX]()) study.
+The code above is used to reproduce the derivation cohort results for the *Standardizing urine output data for AKI analysis: A multicenter proof of concept study*. (DOI: [XX]()) study.
 
 ## Instructions
 
