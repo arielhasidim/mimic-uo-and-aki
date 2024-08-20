@@ -232,7 +232,7 @@ S4_b <- raw_uo %>%
   count(ANCHOR_START, sort = TRUE) %>%
    ggplot(aes(x=as_factor(ANCHOR_START), y=n)) +
    geom_bar(stat="identity") +
-   xlab("Anchor Year Starts") +
+   xlab("Anchor year starts") +
    ylab("") +
    geom_bar(stat="identity", fill="steelblue") +
    geom_text(aes(label=n), vjust=-0.6, color="black", size=3) +
@@ -264,7 +264,7 @@ S4_c <- raw_uo %>%
    ggplot(aes(x=as_factor(ANCHOR_GROUP), y=n)) +
    scale_x_discrete(limits = positions) +
    geom_bar(stat="identity") +
-   xlab("Grouped Anchor years") +
+   xlab("Grouped anchor years") +
    ylab("") +
    geom_bar(stat="identity", fill="steelblue") +
    geom_text(aes(label=n), vjust=-0.6, color="black", size=3) +
@@ -298,7 +298,7 @@ S4_d <- raw_uo %>%
   )) +
   scale_x_discrete(limits = positions) +
   geom_bar(position = "fill", stat = "identity") +
-  xlab("Grouped Anchor years") +
+  xlab("Grouped anchor years") +
   ylab("Proportions") +
   scale_fill_discrete(name = "Source") +
   theme_classic() +
@@ -322,7 +322,7 @@ S4_e <- uo_rate_including_null_collection_period %>%
   geom_bar(position = "dodge", stat = "identity") +
   xlab("Source") +
   ylab("mL") +
-  scale_fill_discrete(name = "Grouped Anchor years") +
+  scale_fill_discrete(name = "Grouped anchor years") +
   theme_classic() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
@@ -340,7 +340,7 @@ S4_f <- uo_rate %>%
     geom_bar(position="dodge", stat="identity") +
   xlab("Source") +
   ylab("Hr") +
-  scale_fill_discrete(name = "Anchor Year Starts") +
+  scale_fill_discrete(name = "Anchor year starts") +
   theme_classic() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
@@ -2196,7 +2196,8 @@ mimic_exclusion_threshold <- validity_threshold_long %>%
   modify_table_body(
     ~ .x %>%
       dplyr::relocate(add_n_stat_1, .before = stat_1) %>%
-      dplyr::relocate(add_n_stat_2, .before = stat_2)
+      dplyr::relocate(add_n_stat_2, .before = stat_2) %>%
+      dplyr::relocate(add_n_stat_3, .before = stat_3)
   )
 
 mimic_exclusion_threshold
