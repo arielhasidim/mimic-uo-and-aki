@@ -33,14 +33,15 @@ SELECT
     IFNULL(d.weight_admit, d.weight) weight_admit,
     e.height_first,
     f.SOFA sofa_first_day,
-    g.charlson_comorbidity_index,
-    h.creat_first,
-    h3.creat_peak_72,
-    h2.creat_last,
-    i.ckd,
-    j.rrt_binary,
-    k.dm,
-    l.sapsii
+    g.apsiii,
+    h.charlson_comorbidity_index,
+    i.creat_first,
+    i3.creat_peak_72,
+    i2.creat_last,
+    j.ckd,
+    k.rrt_binary,
+    l.dm,
+    m.sapsii
 FROM
     stays_services a
     LEFT JOIN (
@@ -75,7 +76,8 @@ FROM
             stay_id
     ) e ON e.stay_id = a.stay_id
     LEFT JOIN `physionet-data.mimiciv_derived.first_day_sofa` f ON f.stay_id = a.stay_id
-    LEFT JOIN `physionet-data.mimiciv_derived.charlson` g ON g.hadm_id = a.hadm_id
+    LEFT JOIN `physionet-data.mimiciv_derived.apsiii` g ON g.stay_id = a.stay_id
+    LEFT JOIN `physionet-data.mimiciv_derived.charlson` h ON h.hadm_id = a.hadm_id
     LEFT JOIN (
         SELECT
             a.stay_id,
@@ -94,7 +96,7 @@ FROM
             AND a.charttime >= DATETIME_TRUNC(b.intime, DAY)
         GROUP BY
             a.stay_id
-    ) h ON h.stay_id = a.stay_id
+    ) i ON i.stay_id = a.stay_id
     LEFT JOIN (
         SELECT
             a.stay_id,
@@ -113,7 +115,7 @@ FROM
             AND a.charttime >= DATETIME_TRUNC(b.intime, DAY)
         GROUP BY
             a.stay_id
-    ) h2 ON h2.stay_id = a.stay_id
+    ) i2 ON i2.stay_id = a.stay_id
     LEFT JOIN (
         SELECT
             a.stay_id,
@@ -134,7 +136,7 @@ FROM
             AND a.charttime >= b.CHARTIME
         GROUP BY
             a.stay_id
-    ) h3 ON h3.stay_id = a.stay_id
+    ) i3 ON i3.stay_id = a.stay_id
     LEFT JOIN (
         SELECT
             hadm_id,
@@ -155,7 +157,7 @@ FROM
             `physionet-data.mimiciv_hosp.diagnoses_icd`
         GROUP BY
             hadm_id
-    ) i ON i.hadm_id = a.hadm_id
+    ) j ON j.hadm_id = a.hadm_id
     LEFT JOIN (
         SELECT
             a.HADM_ID,
@@ -165,7 +167,7 @@ FROM
             LEFT JOIN `physionet-data.mimiciv_derived.rrt` b ON b.STAY_ID = a.STAY_ID
         GROUP BY
             HADM_ID
-    ) j ON j.hadm_id = a.hadm_id
+    ) k ON k.hadm_id = a.hadm_id
     LEFT JOIN (
         SELECT
             hadm_id,
@@ -219,7 +221,7 @@ FROM
             )
         GROUP BY
             hadm_id
-    ) k ON k.hadm_id = a.hadm_id
+    ) l ON l.hadm_id = a.hadm_id
     LEFT JOIN (
         SELECT
             a.stay_id,
@@ -237,7 +239,7 @@ FROM
             b.sapsii IS NOT NULL
         GROUP BY
             a.stay_id
-    ) l ON l.stay_id = a.stay_id
+    ) m ON m.stay_id = a.stay_id
 WHERE
     SERVICE IN (
         'MED',

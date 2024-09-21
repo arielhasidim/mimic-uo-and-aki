@@ -80,7 +80,7 @@ WITH
         WHEN uo.uo_rt_kg_24hr < 0.3
         AND uo.uo_rt_kg_6hr < 0.5 THEN 3
         WHEN uo.uo_rt_kg_12hr = 0
-        AND uo.uo_rt_kg_6hr < 0.5 THEN 3
+        AND uo.uo_rt_kg_6hr < 0.5 THEN 3 -- redundant
         WHEN uo.uo_rt_kg_12hr < 0.5
         AND uo.uo_rt_kg_6hr < 0.5 THEN 2
         WHEN uo.uo_rt_kg_6hr < 0.5 THEN 1
@@ -93,11 +93,11 @@ WITH
         -- i.e. for uo rate over 24 hours, require documentation of UO rate for 24 hours.
         -- using maximum hourly rate, it means that all hours in interval must meat criteria consecutivly
         WHEN uo.uo_max_kg_24hr < 0.3
-        AND uo.uo_max_kg_6hr < 0.5 THEN 3
+        AND uo.uo_max_kg_6hr < 0.5 THEN 3 -- redundant
         WHEN uo.uo_max_kg_12hr = 0
-        AND uo.uo_max_kg_6hr < 0.5 THEN 3
+        AND uo.uo_max_kg_6hr < 0.5 THEN 3 -- redundant
         WHEN uo.uo_max_kg_12hr < 0.5
-        AND uo.uo_max_kg_6hr < 0.5 THEN 2
+        AND uo.uo_max_kg_6hr < 0.5 THEN 2 -- redundant
         WHEN uo.uo_max_kg_6hr < 0.5 THEN 1
         ELSE 0
       END AS aki_stage_uo_cons
@@ -122,6 +122,9 @@ WITH
       charttime
     FROM
       rrt_stg
+    GROUP
+      stay_id,
+      charttime
   )
 SELECT
   ie.subject_id,

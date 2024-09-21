@@ -34,7 +34,7 @@ if (!require("pacman")) install.packages("pacman")
 pacman::p_load(pacman, DBI, bigrquery, tidyverse, reshape2, finalfit, psych,
                ggplot2, ggbreak,scales,ggpmisc, ggforce, rlang, quantreg,
                broom, kableExtra, rmdformats, survival, survminer, nortest,
-               gtsummary, ggsci, ggsurvfit, gt, rms)
+               gtsummary, ggsci, ggsurvfit, gt, rms, marginaleffects)
 
 # Establish connection with BigQuery and billing acount with the correct access
 con <- dbConnect(
@@ -92,12 +92,18 @@ akis_all_wide <- dbGetQuery(con, statement = read_file('sql/akis.sql')) %>%
                             FOLLOWUP_DAYS < 8, 1, 0),
     mortality_30 = if_else(DEATH_FLAG == 1 &
                              FOLLOWUP_DAYS < 31, 1, 0),
-    morality_90_days = if_else(FOLLOWUP_DAYS < 91 &
+    mortality_90 = if_else(FOLLOWUP_DAYS < 91 &
                                  DEATH_FLAG == 1, 1, 0)
   )
 
 akis_all_long <- akis_all_wide %>%
-  select(!FIRST_POSITIVE_STAGE_UO_CONS_TIME) %>%
+  select(-FIRST_POSITIVE_STAGE_UO_CONS_TIME, 
+         -FIRST_POSITIVE_STAGE_UO_MEAN_TIME) %>%
+  left_join((
+    table_1 %>%
+      select(STAY_ID, admission_age, gender, charlson_comorbidity_index, apsiii, weight_admit)
+  ),
+  by = "STAY_ID") %>%
   mutate(
     max_stage.old = MAX_STAGE_OLD,
     max_stage.newcons = MAX_STAGE_NEW_CONS,
@@ -115,11 +121,16 @@ akis_all_long <- akis_all_wide %>%
       STAY_ID,
       HADM_ID,
       SUBJECT_ID,
+      admission_age,
+      weight_admit,
+      gender,
+      charlson_comorbidity_index,
+      apsiii,
       FOLLOWUP_DAYS,
       DEATH_FLAG,
       mortality_7,
       mortality_30,
-      morality_90_days
+      mortality_90
     ),
     names_sep = "\\.",
     names_to = c(".value", "group")
@@ -760,11 +771,12 @@ t1a <- table_1 %>%
     weight_admit,
     gender,
     race,
-    sofa_first_day,
     charlson_comorbidity_index,
-    sapsii,
     ckd,
     dm,
+    sofa_first_day,
+    sapsii,
+    apsiii,
     creat_first,
     creat_peak_72,
     creat_last,
@@ -799,6 +811,7 @@ t1a <- table_1 %>%
       charlson_comorbidity_index ~ "CCI Score",
       sofa_first_day ~ "SOFA Score at ICU Admission",
       ckd ~ "CKD, Stage 1-4",
+      apsiii ~ "APS-III Score at ICU Admission",
       creat_first ~ "First Creatinine in ICU, mg/dL",
       creat_peak_72 ~ "Peak Creatinine at first days, mg/dL",
       creat_last ~ "Hospital Discharge Creatinine, mg/dL",
@@ -1576,11 +1589,12 @@ mimic_kdigo_inter_cons_mean <- akis_all_long %>%
     weight_admit,
     gender,
     race,
-    sofa_first_day,
     charlson_comorbidity_index,
-    sapsii,
     ckd,
     dm,
+    sofa_first_day,
+    sapsii,
+    apsiii,
     creat_first,
     creat_last,
   # scr_baseline,
@@ -1613,6 +1627,7 @@ mimic_kdigo_inter_cons_mean <- akis_all_long %>%
       charlson_comorbidity_index ~ "CCI Score",
       sofa_first_day ~ "SOFA Score at ICU Admission",
       ckd ~ "CKD, Stage 1-4",
+      apsiii ~ "APS-III Score at ICU Admission",
       creat_first ~ "First Creatinine, mg/dL",
       creat_last ~ "Hospital Discharge Creatinine, mg/dL",
       race ~ "Ethnicity",
@@ -1655,11 +1670,12 @@ mimic_kdigo_inter_mean_old <- akis_all_long %>%
     weight_admit,
     gender,
     race,
-    sofa_first_day,
     charlson_comorbidity_index,
-    sapsii,
     ckd,
     dm,
+    sofa_first_day,
+    sapsii,
+    apsiii,
     creat_first,
     creat_last,
   # scr_baseline,
@@ -1692,6 +1708,7 @@ mimic_kdigo_inter_mean_old <- akis_all_long %>%
       charlson_comorbidity_index ~ "CCI Score",
       sofa_first_day ~ "SOFA Score at ICU Admission",
       ckd ~ "CKD, Stage 1-4",
+      apsiii ~ "APS-III Score at ICU Admission",
       creat_first ~ "First Creatinine, mg/dL",
       creat_last ~ "Hospital Discharge Creatinine, mg/dL",
       race ~ "Ethnicity",
@@ -1734,11 +1751,12 @@ mimic_kdigo_inter_cons_old <- akis_all_long %>%
     weight_admit,
     gender,
     race,
-    sofa_first_day,
     charlson_comorbidity_index,
-    sapsii,
     ckd,
     dm,
+    sofa_first_day,
+    sapsii,
+    apsiii,
     creat_first,
     creat_last,
   # scr_baseline,
@@ -1771,6 +1789,7 @@ mimic_kdigo_inter_cons_old <- akis_all_long %>%
       charlson_comorbidity_index ~ "CCI Score",
       sofa_first_day ~ "SOFA Score at ICU Admission",
       ckd ~ "CKD, Stage 1-4",
+      apsiii ~ "APS-III Score at ICU Admission",
       creat_first ~ "First Creatinine, mg/dL",
       creat_last ~ "Hospital Discharge Creatinine, mg/dL",
       race ~ "Ethnicity",
@@ -1866,14 +1885,42 @@ mimic_kdigo_inter_bic <- cbind(Model = rownames(mimic_kdigo_inter_bic), mimic_kd
 mimic_kdigo_inter_bic
 ```
 
+check for mortality overdispration:
 ```{r}
+model_binom <- glm(
+  mortality_30 ~ stage_newcons,
+  family = binomial,
+  data = (
+    akis_all_long %>%
+      filter(group == "newcons") %>%
+      mutate(stage_newcons = as.factor(max_stage))
+  )
+)
+
+model_overdispersed <- glm(
+  mortality_30 ~ stage_newcons,
+  family = quasibinomial,
+  data = (
+    akis_all_long %>%
+      filter(group == "newcons") %>%
+      mutate(stage_newcons = as.factor(max_stage))
+  )
+)
+
+pchisq(summary(model_overdispersed)$dispersion * model_binom$df.residual, 
+       model_binom$df.residual, lower = F)
+```
+
+```{r}
+akis_all_long_complete <- akis_all_long %>% drop_na(max_stage)
+
 # descriptive
-descriptive_tbl <- akis_all_long %>%
+descriptive_tbl <- akis_all_long_complete %>%
   group_by(group, max_stage) %>%
   summarise(
     n = n(),
-    dead = sum(DEATH_FLAG),
-    mortality_prop = sum(DEATH_FLAG) / n()
+    dead = sum(mortality_30),
+    mortality_prop = sum(mortality_30) / n()
   ) %>%
   # drop_na() %>%
   group_by(group) %>%
@@ -1888,30 +1935,30 @@ descriptive_tbl <- akis_all_long %>%
 
 # glm
 m1 <- glm(
-  DEATH_FLAG ~ stage_newcons,
+  mortality_30 ~ stage_newcons,
   family = binomial,
   data = (
-    akis_all_long %>%
+    akis_all_long_complete %>%
       filter(group == "newcons") %>%
       mutate(stage_newcons = as.factor(max_stage))
   )
 )
 
 m2 <- glm(
-  DEATH_FLAG ~ stage_newmean,
+  mortality_30 ~ stage_newmean,
   family = binomial,
   data = (
-    akis_all_long %>%
+    akis_all_long_complete %>%
       filter(group == "newmean") %>%
       mutate(stage_newmean = as.factor(max_stage))
   )
 )
 
 m3 <- glm(
-  DEATH_FLAG ~ stage_old,
+  mortality_30 ~ stage_old,
   family = binomial,
   data = (
-    akis_all_long %>%
+    akis_all_long_complete %>%
       filter(group == "old") %>%
       mutate(stage_old = as.factor(max_stage))
   )
@@ -1963,11 +2010,270 @@ mimic_kdigo_inter_survival_table <- rr_table_data %>%
     row_group_as_column = TRUE
   ) %>%
   tab_stubhead(label = "Criteria / Stage") %>%
-  tab_spanner(label = "Univariate analysis", columns = c("OR (95% CI)", "P value")) %>%
-  tab_source_note(source_note = md("For all urine sources")) %>%
-  tab_source_note(source_note = md("KDIGO stage was calculated diffrently"))
+  tab_spanner(label = "Unadjusted OR", columns = c("OR (95% CI)", "P value"))
 
 mimic_kdigo_inter_survival_table
+```
+
+adjusted models:
+```{r}
+m1_adj1 <- glm(
+  mortality_30 ~ stage_newcons * (
+    admission_age + gender + weight_admit + first_stage
+  ),
+  family = binomial,
+  data = (
+    akis_all_long_complete %>%
+      filter(group == "newcons") %>%
+      mutate(stage_newcons = as.factor(max_stage))
+  )
+)
+
+mrg_efct_m1_adj1 <- avg_comparisons(
+  m1_adj1,
+  variables = "stage_newcons",
+  comparison = "lnoravg",
+  transform = exp
+)
+
+rr_table_data_m1_adj1 <- mrg_efct_m1_adj1 %>%
+    transmute(
+      group = "newcons",
+      max_stage = as.factor(dplyr::row_number()),
+      estimate = paste0(round(estimate, 2), " (",round(conf.low, 2), "-", round(conf.high, 2), ")"),
+      p.value
+    ) %>% add_row(group = "newcons", max_stage = "0", .before = 0) %>%
+    transmute(
+    group,
+    max_stage,
+    or.adj1 = if_else(is.na(estimate), "1 [Reference]", estimate),
+    p.adj1 = case_when(
+      is.na(p.value) ~ "NA",
+      p.value < 0.001 ~ "<.001",
+      .default = as.character(round(p.value, 2))
+    )
+  )
+
+m1_adj2 <- glm(
+  mortality_30 ~ stage_newcons * (
+    admission_age + gender + weight_admit + apsiii + first_stage
+  ),
+  family = binomial,
+  data = (
+    akis_all_long_complete %>%
+      filter(group == "newcons") %>%
+      mutate(stage_newcons = as.factor(max_stage))
+  )
+)
+
+mrg_efct_m1_adj2 <- avg_comparisons(
+  m1_adj2,
+  variables = "stage_newcons",
+  comparison = "lnoravg",
+  transform = exp
+)
+
+rr_table_data_m1_adj2 <- mrg_efct_m1_adj2 %>%
+    transmute(
+      group = "newcons",
+      max_stage = as.factor(dplyr::row_number()),
+      estimate = paste0(round(estimate, 2), " (",round(conf.low, 2), "-", round(conf.high, 2), ")"),
+      p.value
+    ) %>% add_row(group = "newcons", max_stage = "0", .before = 0) %>%
+    transmute(
+    group,
+    max_stage,
+    or.adj2 = if_else(is.na(estimate), "1 [Reference]", estimate),
+    p.adj2 = case_when(
+      is.na(p.value) ~ "NA",
+      p.value < 0.001 ~ "<.001",
+      .default = as.character(round(p.value, 2))
+    )
+  )
+
+m2_adj1 <- glm(
+  mortality_30 ~ stage_newmean * (
+    admission_age + weight_admit + gender + first_stage
+  ),
+  family = binomial,
+  data = (
+    akis_all_long_complete %>%
+      filter(group == "newmean") %>%
+      mutate(stage_newmean = as.factor(max_stage))
+  )
+)
+
+mrg_efct_m2_adj1 <- avg_comparisons(
+  m2_adj1,
+  variables = "stage_newmean",
+  comparison = "lnoravg",
+  transform = exp
+)
+
+rr_table_data_m2_adj1 <- mrg_efct_m2_adj1 %>%
+    transmute(
+      group = "newmean",
+      max_stage = as.factor(dplyr::row_number()),
+      estimate = paste0(round(estimate, 2), " (",round(conf.low, 2), "-", round(conf.high, 2), ")"),
+      p.value
+    ) %>% add_row(group = "newmean", max_stage = "0", .before = 0) %>%
+    transmute(
+    group,
+    max_stage,
+    or.adj1 = if_else(is.na(estimate), "1 [Reference]", estimate),
+    p.adj1 = case_when(
+      is.na(p.value) ~ "NA",
+      p.value < 0.001 ~ "<.001",
+      .default = as.character(round(p.value, 2))
+    )
+  )
+
+m2_adj2 <- glm(
+  mortality_30 ~ stage_newmean * (
+    admission_age + gender + weight_admit + apsiii + first_stage
+  ),
+  family = binomial,
+  data = (
+    akis_all_long_complete %>%
+      filter(group == "newmean") %>%
+      mutate(stage_newmean = as.factor(max_stage))
+  )
+)
+
+mrg_efct_m2_adj2 <- avg_comparisons(
+  m2_adj2,
+  variables = "stage_newmean",
+  comparison = "lnoravg",
+  transform = exp
+)
+
+rr_table_data_m2_adj2 <- mrg_efct_m2_adj2 %>%
+    transmute(
+      group = "newmean",
+      max_stage = as.factor(dplyr::row_number()),
+      estimate = paste0(round(estimate, 2), " (",round(conf.low, 2), "-", round(conf.high, 2), ")"),
+      p.value
+    ) %>% add_row(group = "newmean", max_stage = "0", .before = 0) %>%
+    transmute(
+    group,
+    max_stage,
+    or.adj2 = if_else(is.na(estimate), "1 [Reference]", estimate),
+    p.adj2 = case_when(
+      is.na(p.value) ~ "NA",
+      p.value < 0.001 ~ "<.001",
+      .default = as.character(round(p.value, 2))
+    )
+  )
+
+m3_adj1 <- glm(
+  mortality_30 ~ stage_old * (
+    admission_age + weight_admit + gender + first_stage
+  ),
+  family = binomial,
+  data = (
+    akis_all_long_complete %>%
+      filter(group == "old") %>%
+      mutate(stage_old = as.factor(max_stage))
+  )
+)
+
+mrg_efct_m3_adj1 <- avg_comparisons(
+  m3_adj1,
+  variables = "stage_old",
+  comparison = "lnoravg",
+  transform = exp
+)
+
+rr_table_data_m3_adj1 <- mrg_efct_m3_adj1 %>%
+    transmute(
+      group = "old",
+      max_stage = as.factor(dplyr::row_number()),
+      estimate = paste0(round(estimate, 2), " (",round(conf.low, 2), "-", round(conf.high, 2), ")"),
+      p.value
+    ) %>% add_row(group = "old", max_stage = "0", .before = 0) %>%
+    transmute(
+    group,
+    max_stage,
+    or.adj1 = if_else(is.na(estimate), "1 [Reference]", estimate),
+    p.adj1 = case_when(
+      is.na(p.value) ~ "NA",
+      p.value < 0.001 ~ "<.001",
+      .default = as.character(round(p.value, 2))
+    )
+  )
+
+m3_adj2 <- glm(
+  mortality_30 ~ stage_old * (
+    admission_age + weight_admit + gender + apsiii + first_stage
+  ),
+  family = binomial,
+  data = (
+    akis_all_long_complete %>%
+      filter(group == "old") %>%
+      mutate(stage_old = as.factor(max_stage))
+  )
+)
+
+mrg_efct_m3_adj2 <- avg_comparisons(
+  m3_adj2,
+  variables = "stage_old",
+  comparison = "lnoravg",
+  transform = exp
+)
+
+rr_table_data_m3_adj2 <- mrg_efct_m3_adj2 %>%
+    transmute(
+      group = "old",
+      max_stage = as.factor(dplyr::row_number()),
+      estimate = paste0(round(estimate, 2), " (",round(conf.low, 2), "-", round(conf.high, 2), ")"),
+      p.value
+    ) %>% add_row(group = "old", max_stage = "0", .before = 0) %>%
+    transmute(
+    group,
+    max_stage,
+    or.adj2 = if_else(is.na(estimate), "1 [Reference]", estimate),
+    p.adj2 = case_when(
+      is.na(p.value) ~ "NA",
+      p.value < 0.001 ~ "<.001",
+      .default = as.character(round(p.value, 2))
+    )
+  )
+
+mimic_kdigo_inter_survival_table_adj <- rr_table_data %>% 
+  left_join(bind_rows(rr_table_data_m1_adj1, rr_table_data_m2_adj1, rr_table_data_m3_adj1)) %>%
+  left_join(bind_rows(rr_table_data_m1_adj2, rr_table_data_m2_adj2, rr_table_data_m3_adj2)) %>%
+  mutate(
+    group = case_when(
+      group == "newcons" ~ 'UO-Consecutive',
+      group == "newmean" ~ 'UO-Average',
+      group == "old" ~ 'Block summation'
+    )
+  ) %>%
+  gt(
+    rowname_col = "max_stage",
+    groupname_col = "group",
+    row_group_as_column = TRUE
+  ) %>%
+  cols_label(
+    or.adj1 = "OR (95% CI)",
+    or.adj2 = "OR (95% CI)",
+    p.adj1 = "P value",
+    p.adj2 = "P value",
+  ) %>%
+  tab_stubhead(label = "Criteria / Stage") %>%
+  tab_spanner(label = "Unadjusted OR", columns = c("OR (95% CI)", "P value")) %>%
+  tab_spanner(label = "Adjusted Model 1", columns = c(or.adj1, p.adj1), id = "adj1") %>%
+  tab_spanner(label = "Adjusted Model 2", columns = c(or.adj2, p.adj2), id = "adj2") %>%
+  tab_footnote(
+    footnote = "Model include age, weight, gender and whether diagnosed on admission",
+    locations = cells_column_spanners(spanners = "adj1")
+  ) %>%
+  tab_footnote(
+    footnote = "Model include model 1, CCI score and APS-III score at ICU admission",
+    locations = cells_column_spanners(spanners = "adj2")
+  )
+
+mimic_kdigo_inter_survival_table_adj
 ```
 
 
@@ -1988,8 +2294,8 @@ mimic_survival_figure_newcons <- km_fit_newcons %>%
 ggsurvfit(linewidth = 1) +
   add_confidence_interval() +
   add_quantile() +
-  scale_ggsurvfit(x_scales = list(breaks = seq(0, 90, by = 5))) +
-  coord_cartesian(xlim = c(0, 90)) +
+  scale_ggsurvfit(x_scales = list(breaks = seq(0, 30, by = 5))) +
+  coord_cartesian(xlim = c(0, 30)) +
   theme_classic() +
   scale_fill_discrete(labels=c('0', '1', '2', '3')) +
   scale_color_discrete(labels=c('0', '1', '2', '3')) +
@@ -2001,8 +2307,8 @@ mimic_survival_figure_newmean <- km_fit_newmean %>%
 ggsurvfit(linewidth = 1) +
   add_confidence_interval() +
   add_quantile() +
-  scale_ggsurvfit(x_scales = list(breaks = seq(0, 90, by = 5))) +
-  coord_cartesian(xlim = c(0, 90)) +
+  scale_ggsurvfit(x_scales = list(breaks = seq(0, 30, by = 5))) +
+  coord_cartesian(xlim = c(0, 30)) +
   theme_classic() +
   scale_fill_discrete(labels=c('0', '1', '2', '3')) +
   scale_color_discrete(labels=c('0', '1', '2', '3')) +
@@ -2014,8 +2320,8 @@ mimic_survival_figure_old <- km_fit_old %>%
 ggsurvfit(linewidth = 1) +
   add_confidence_interval() +
   add_quantile() +
-  scale_ggsurvfit(x_scales = list(breaks = seq(0, 90, by = 5))) +
-  coord_cartesian(xlim = c(0, 90)) +
+  scale_ggsurvfit(x_scales = list(breaks = seq(0, 30, by = 5))) +
+  coord_cartesian(xlim = c(0, 30)) +
   theme_classic() +
   scale_fill_discrete(labels=c('0', '1', '2', '3')) +
   scale_color_discrete(labels=c('0', '1', '2', '3')) +
@@ -2039,7 +2345,7 @@ mimic_kdigo_inter_survival_figure
 
 # Sensitivity Analysis: Validity Threshold for Durations of Collection
 
-```{r create data for threshold analysis, include=FALSE}
+```{r create data for threshold analysis, include=FALSE, cache=TRUE}
 dbSendQuery(con, statement = read_file('sql/validate cutoff/b_uo_rate_temp.sql'))
 
 dbSendQuery(con, statement = read_file('sql/validate cutoff/c_hourly_uo_9520_temp.sql'))
@@ -2080,7 +2386,7 @@ validity_threshold_long <- validity_threshold_wide %>%
     names_to = c(".value", "group")
   ) %>%
   mutate(
-    morality_90_days = if_else(FOLLOWUP_DAYS < 91 &
+    mortality_90 = if_else(FOLLOWUP_DAYS < 91 &
                                  DEATH_FLAG == 1, 1, 0),
     prevalnce_admit = if_else(first_stage > 0, 1, 0),
     Incidence_first_72hr = case_when(first_stage > 0 ~ NA, max_stage == 0 ~ 0, max_stage > 0 ~ 1),
@@ -2140,11 +2446,12 @@ mimic_exclusion_threshold <- validity_threshold_long %>%
     weight_admit,
     gender,
     race,
-    sofa_first_day,
     charlson_comorbidity_index,
-    sapsii,
     ckd,
     dm,
+    sofa_first_day,
+    sapsii,
+    apsiii,
     creat_first,
     creat_last,
   # scr_baseline,
@@ -2177,6 +2484,7 @@ mimic_exclusion_threshold <- validity_threshold_long %>%
       charlson_comorbidity_index ~ "CCI Score",
       sofa_first_day ~ "SOFA Score at ICU Admission",
       ckd ~ "CKD, Stage 1-4",
+      apsiii ~ "APS-III Score at ICU Admission",
       creat_first ~ "First Creatinine, mg/dL",
       creat_last ~ "Hospital Discharge Creatinine, mg/dL",
       race ~ "Ethnicity",
@@ -2287,11 +2595,12 @@ table_1_staging <- table1_akis %>%
     weight_admit,
     gender,
     race,
-    sofa_first_day,
     charlson_comorbidity_index,
-    sapsii,
     ckd,
     dm,
+    sofa_first_day,
+    sapsii,
+    apsiii,
     creat_first,
     creat_peak_72,
     creat_last,
@@ -2339,6 +2648,7 @@ table_1_staging <- table1_akis %>%
       charlson_comorbidity_index ~ "CCI Score",
       sofa_first_day ~ "SOFA Score at ICU Admission",
       ckd ~ "CKD, Stage 1-4",
+      apsiii ~ "APS-III Score at ICU Admission",
       creat_first ~ "First Creatinine, mg/dL",
       creat_peak_72 ~ "Peak Creatinine at first days, mg/dL",
       creat_last ~ "Hospital Discharge Creatinine, mg/dL",
@@ -2398,9 +2708,8 @@ km_fit <- survfit2(Surv(FOLLOWUP_DAYS, DEATH_FLAG) ~ MAX_STAGE_NEW_CONS, data = 
 
 mimic_survival_cons_figure <- km_fit %>%
 ggsurvfit(linewidth = 1) +
-  add_quantile() +
-  scale_ggsurvfit(x_scales = list(breaks = seq(0, 90, by = 15))) +
-  coord_cartesian(xlim = c(-5, 95)) +
+  scale_ggsurvfit(x_scales = list(breaks = seq(0, 30, by = 5))) +
+  coord_cartesian(xlim = c(-1, 35)) +
   theme_classic() +
   labs(x="Days", y = "Survival", 
        color='Maximum KDIGO-UO stage', fill='Maximum KDIGO-UO stage') +
@@ -2429,19 +2738,19 @@ mimic_survival_table
 Log rank for each pair:
 
 ```{r}
-survdiff(Surv(FOLLOWUP_DAYS, DEATH_FLAG) ~ MAX_STAGE_NEW_CONS, data = akis_all_wide)
+survdiff(Surv(FOLLOWUP_DAYS, mortality_30) ~ MAX_STAGE_NEW_CONS, data = akis_all_wide)
 
 akis_all_wide_non_01 <- akis_all_wide %>%
   filter(MAX_STAGE_NEW_CONS == 0 | MAX_STAGE_NEW_CONS == 1)
-survdiff(Surv(FOLLOWUP_DAYS, DEATH_FLAG) ~ MAX_STAGE_NEW_CONS, data = akis_all_wide_non_01)
+survdiff(Surv(FOLLOWUP_DAYS, mortality_30) ~ MAX_STAGE_NEW_CONS, data = akis_all_wide_non_01)
 
 akis_all_wide_non_12 <- akis_all_wide %>%
   filter(MAX_STAGE_NEW_CONS == 1 | MAX_STAGE_NEW_CONS == 2)
-survdiff(Surv(FOLLOWUP_DAYS, DEATH_FLAG) ~ MAX_STAGE_NEW_CONS, data = akis_all_wide_non_12)
+survdiff(Surv(FOLLOWUP_DAYS, mortality_30) ~ MAX_STAGE_NEW_CONS, data = akis_all_wide_non_12)
 
 akis_all_wide_non_23 <- akis_all_wide %>%
   filter(MAX_STAGE_NEW_CONS == 2 | MAX_STAGE_NEW_CONS == 3)
-survdiff(Surv(FOLLOWUP_DAYS, DEATH_FLAG) ~ MAX_STAGE_NEW_CONS, data = akis_all_wide_non_23)
+survdiff(Surv(FOLLOWUP_DAYS, mortality_30) ~ MAX_STAGE_NEW_CONS, data = akis_all_wide_non_23)
 ```
 
 
@@ -2456,6 +2765,8 @@ mimic_aki_epi <- akis_all_long %>%
 mimic_akis_all_wide <- akis_all_wide
 mimic_table_1_staging <- table_1_staging
 mimic_rr_table_data <- rr_table_data
+mimic_rr_table_data_adj <- rr_table_data %>% 
+  left_join(bind_rows(rr_table_data_m1_adj1, rr_table_data_m2_adj1, rr_table_data_m3_adj1))
 
 save(mimic_t1a,
      mimic_t1b,
@@ -2469,6 +2780,7 @@ save(mimic_t1a,
      mimic_akis_all_wide,
      mimic_table_1_staging,
      mimic_rr_table_data,
+     mimic_rr_table_data_adj,
      file = "paper_mimic.Rda")
 ```
 
@@ -2515,6 +2827,7 @@ save(
   mimic_kdigo_inter_mean_old,
   mimic_kdigo_inter_bic,
   mimic_kdigo_inter_survival_table,
+  mimic_kdigo_inter_survival_table_adj,
   mimic_kdigo_inter_survival_figure,
   file = "s_data.Rda"
 )
