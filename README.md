@@ -1,7 +1,7 @@
 # MIMIC-IV hourly-adjusted urine output and AKI analysis
 
 SQL queries and R workflow to create datasets for hourly-adjusted urine output (UO) and AKI events as well as the original research results from the [MIMIC critical care database](https://mimic.mit.edu). 
-This repository accompanies the article: *"Standardizing urine output data for AKI analysis: A multicenter proof of concept study"*.
+This repository accompanies the article: *"Toward urine output data standardization for AKI analysis: A multicenter proof of concept study"*.
 
 ## Table of contents
 
