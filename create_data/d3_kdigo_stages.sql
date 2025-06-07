@@ -122,7 +122,7 @@ WITH
       charttime
     FROM
       rrt_stg
-    GROUP
+    GROUP BY
       stay_id,
       charttime
   )
@@ -131,6 +131,7 @@ SELECT
   ie.hadm_id,
   ie.stay_id,
   tm.charttime,
+  IFNULL(w.WEIGHT_ADMIT, w.WEIGHT) weight_admit,
   cr.creat_low_past_7day,
   cr.creat_low_past_48hr,
   cr.creat,
@@ -164,3 +165,4 @@ FROM
   AND tm.charttime = uo.charttime
   LEFT JOIN rrt_stg rrt ON ie.stay_id = rrt.stay_id
   AND tm.charttime = rrt.charttime
+  LEFT JOIN `physionet-data.mimiciv_derived.first_day_weight` w ON w.STAY_ID = ie.STAY_ID

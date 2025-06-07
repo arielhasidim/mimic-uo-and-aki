@@ -18,6 +18,22 @@ WITH
         GROUP BY
             a.hadm_id,
             a.STAY_ID
+    ),
+    creatinine AS (
+          SELECT
+            ie.hadm_id
+            , ie.stay_id
+            , le.charttime
+            , AVG(le.valuenum) AS creat
+        FROM `physionet-data.mimiciv_icu.icustays` ie
+        LEFT JOIN `physionet-data.mimiciv_hosp.labevents` le
+            ON ie.subject_id = le.subject_id
+                AND le.itemid = 50912
+                AND le.valuenum IS NOT NULL
+                AND le.valuenum <= 150
+                AND le.charttime >= DATETIME_TRUNC(ie.intime, DAY)
+                AND le.charttime <= ie.outtime
+        GROUP BY ie.hadm_id, ie.stay_id, le.charttime
     )
 SELECT
     a.hadm_id,
@@ -38,6 +54,7 @@ SELECT
     i.creat_first,
     i3.creat_peak_72,
     i2.creat_last,
+    n.kdigo_cr_max,
     j.ckd,
     k.rrt_binary,
     l.dm,
@@ -80,60 +97,42 @@ FROM
     LEFT JOIN `physionet-data.mimiciv_derived.charlson` h ON h.hadm_id = a.hadm_id
     LEFT JOIN (
         SELECT
-            a.stay_id,
+            stay_id,
             ARRAY_AGG(
-                a.creat
+                creat
                 ORDER BY
-                    a.charttime ASC
+                    charttime ASC
                 LIMIT
                     1
             ) [OFFSET(0)] creat_first
-        FROM
-            `physionet-data.mimiciv_derived.kdigo_creatinine` a
-            LEFT JOIN `physionet-data.mimic_icu.icustays` b ON b.stay_id = a.stay_id
-        WHERE
-            a.creat IS NOT NULL
-            AND a.charttime >= DATETIME_TRUNC(b.intime, DAY)
+        FROM creatinine
         GROUP BY
-            a.stay_id
+            stay_id
     ) i ON i.stay_id = a.stay_id
     LEFT JOIN (
         SELECT
-            a.stay_id,
+            stay_id,
             ARRAY_AGG(
-                a.creat
+                creat
                 ORDER BY
-                    a.charttime DESC
+                    charttime DESC
                 LIMIT
                     1
             ) [OFFSET(0)] creat_last
-        FROM
-            `physionet-data.mimiciv_derived.kdigo_creatinine` a
-            LEFT JOIN `physionet-data.mimic_icu.icustays` b ON b.hadm_id = a.hadm_id
-        WHERE
-            a.creat IS NOT NULL
-            AND a.charttime >= DATETIME_TRUNC(b.intime, DAY)
+        FROM creatinine
         GROUP BY
-            a.stay_id
+            stay_id
     ) i2 ON i2.stay_id = a.stay_id
     LEFT JOIN (
         SELECT
             a.stay_id,
-            ARRAY_AGG(
-                a.creat
-                ORDER BY
-                    a.charttime DESC
-                LIMIT
-                    1
-            ) [OFFSET(0)] creat_peak_72
-        FROM
-            `physionet-data.mimiciv_derived.kdigo_creatinine` a
+            MAx(a.creat) creat_peak_72
+        FROM creatinine a
             LEFT JOIN  (SELECT STAY_ID, MIN(CHARTTIME) CHARTIME FROM `mimic_uo_and_aki.a_urine_output_raw` GROUP BY STAY_ID)
               AS b ON b.STAY_ID = a.STAY_ID
         WHERE
             a.creat IS NOT NULL
             AND a.CHARTTIME < DATETIME_ADD(b.CHARTIME, INTERVAL 72 HOUR)
-            AND a.charttime >= b.CHARTIME
         GROUP BY
             a.stay_id
     ) i3 ON i3.stay_id = a.stay_id
@@ -240,6 +239,17 @@ FROM
         GROUP BY
             a.stay_id
     ) m ON m.stay_id = a.stay_id
+    LEFT JOIN (
+        SELECT a.stay_id,
+            MAX(a.aki_stage_creat) kdigo_cr_max
+        FROM `mimic_uo_and_aki.d3_kdigo_stages` a
+        LEFT JOIN  (SELECT STAY_ID, MIN(CHARTTIME) CHARTIME FROM `mimic_uo_and_aki.a_urine_output_raw` GROUP BY STAY_ID)
+              AS b ON b.STAY_ID = a.STAY_ID
+        WHERE
+            a.creat IS NOT NULL
+            AND a.CHARTTIME < DATETIME_ADD(b.CHARTIME, INTERVAL 72 HOUR)
+        GROUP BY a.stay_id
+    ) n ON n.stay_id = a.stay_id
 WHERE
     SERVICE IN (
         'MED',

@@ -1,7 +1,7 @@
 ---
-title: "Standardizing urine output data for AKI analysis: A multicenter proof of concept study - repreducing results for MIMICdb"
+title: "Toward the standardization of big datasets of urine output for AKI analysis: a multicenter validation study"
 author: "Ariel Avraham Hasidim, Matthew Adam Klein, Itamar Ben Shitrit, Sharon Einav, Karny Ilan, Lior Fuchs"
-date: "August 17th, 2024"
+date: "February 24th, 2025"
 output: 
   html_document:
     code_folding: hide
@@ -87,6 +87,8 @@ table_1 <- dbGetQuery(con, statement = read_file('sql/tbl1.sql'))
 
 akis_all_wide <- dbGetQuery(con, statement = read_file('sql/akis.sql')) %>%
   filter(FOLLOWUP_DAYS >= 0) %>%
+  filter(WEIGHT_ADMIT <= 300,
+         WEIGHT_ADMIT >= 25) %>%
   mutate(
     mortality_7 = if_else(DEATH_FLAG == 1 &
                             FOLLOWUP_DAYS < 8, 1, 0),
@@ -98,7 +100,8 @@ akis_all_wide <- dbGetQuery(con, statement = read_file('sql/akis.sql')) %>%
 
 akis_all_long <- akis_all_wide %>%
   select(-FIRST_POSITIVE_STAGE_UO_CONS_TIME, 
-         -FIRST_POSITIVE_STAGE_UO_MEAN_TIME) %>%
+         -FIRST_POSITIVE_STAGE_UO_MEAN_TIME,
+         -WEIGHT_ADMIT) %>%
   left_join((
     table_1 %>%
       select(STAY_ID, admission_age, gender, charlson_comorbidity_index, apsiii, weight_admit)
@@ -447,7 +450,7 @@ dbGetQuery(con, statement = read_file('sql/gu_irig_exclusion.sql'))
 
 \ 
 
-**Not passing sanity check:**
+**Not passing UO sanity check:**
 
 ```{r}
 dbGetQuery(con, statement = read_file('sql/sanity.sql'))
@@ -621,24 +624,50 @@ hourly_uo %>%
 **Hourly-adjusted UO with admission weights:**
 
 ```{r}
-print("ICU stays with admission weight and valid hourly-adjusted UO:")
+print("ICU stays with weight at admission and valid hourly-adjusted UO:")
 hourly_uo %>%
   filter(STAY_ID %in%
            (
              uo_rate_including_null_collection_period %>%
                drop_na(TIME_INTERVAL)
            )$STAY_ID) %>%
-  drop_na(HOURLY_WEIGHTED_MEAN_RATE, WEIGHT_ADMIT) %>%
+  drop_na(HOURLY_WEIGHTED_MEAN_RATE) %>%
+  drop_na(WEIGHT_ADMIT) %>%
   {n_distinct(.$STAY_ID)}
 
-print("Valid hourly-adjusted UO monitoring hours with admission weights:")
+print("Valid hourly-adjusted UO monitoring hours with weight at admission:")
 hourly_uo %>%
   filter(STAY_ID %in%
            (
              uo_rate_including_null_collection_period %>%
                drop_na(TIME_INTERVAL)
            )$STAY_ID) %>%
-  drop_na(HOURLY_WEIGHTED_MEAN_RATE, WEIGHT_ADMIT) %>%
+  drop_na(HOURLY_WEIGHTED_MEAN_RATE) %>%
+  drop_na(WEIGHT_ADMIT) %>%
+  nrow()
+
+print("ICU stays with valid weight (25 <= kg <=300) and valid hourly-adjusted UO:")
+hourly_uo %>%
+  filter(STAY_ID %in%
+           (
+             uo_rate_including_null_collection_period %>%
+               drop_na(TIME_INTERVAL)
+           )$STAY_ID) %>%
+  drop_na(HOURLY_WEIGHTED_MEAN_RATE) %>%
+  filter(WEIGHT_ADMIT <= 300,
+         WEIGHT_ADMIT >= 25) %>%
+  {n_distinct(.$STAY_ID)}
+
+print("Valid hourly-adjusted UO monitoring hours with valid weights:")
+hourly_uo %>%
+  filter(STAY_ID %in%
+           (
+             uo_rate_including_null_collection_period %>%
+               drop_na(TIME_INTERVAL)
+           )$STAY_ID) %>%
+  drop_na(HOURLY_WEIGHTED_MEAN_RATE) %>%
+  filter(WEIGHT_ADMIT <= 300,
+         WEIGHT_ADMIT >= 25) %>%
   nrow()
 ```
 
@@ -654,6 +683,8 @@ kdigo_uo_stage %>%
              uo_rate_including_null_collection_period %>%
                drop_na(TIME_INTERVAL)
            )$STAY_ID) %>%
+  filter(weight_admit <= 300,
+         weight_admit >= 25) %>%
   {n_distinct(.$stay_id)}
 
 print("number of included hours with valid KDIGO-UO staging")
@@ -663,6 +694,8 @@ kdigo_uo_stage %>%
              uo_rate_including_null_collection_period %>%
                drop_na(TIME_INTERVAL)
            )$STAY_ID) %>%
+  filter(weight_admit <= 300,
+         weight_admit >= 25) %>%
   nrow()
 ```
 
@@ -688,12 +721,16 @@ print("number of first ICU stays with valid KDIGO-UO staging")
 kdigo_uo_stage %>% 
   filter(stay_id %in% first_icu_stay$FIRST_STAY_ID_IN_PATIENT
          & stay_id %in% raw_uo_eligible$STAY_ID) %>%
+  filter(weight_admit <= 300,
+         weight_admit >= 25) %>%
   {n_distinct(.$stay_id)}
 
 print("number of valid hourly KDIGO-UO staging in first ICU stays")
 kdigo_uo_stage %>% 
   filter(stay_id %in% first_icu_stay$FIRST_STAY_ID_IN_PATIENT
          & stay_id %in% raw_uo_eligible$STAY_ID) %>%
+  filter(weight_admit <= 300,
+         weight_admit >= 25) %>%
   nrow()
 ```
 
@@ -712,13 +749,18 @@ aki_epi <- akis_all_long %>%
 
 kdigo_uo_stage %>% 
   filter(stay_id %in% aki_epi$STAY_ID) %>%
+  filter(weight_admit <= 300,
+         weight_admit >= 25) %>%
   {n_distinct(.$stay_id)}
 
 print("number of valid hourly KDIGO-UO for those stays")
 kdigo_uo_stage %>% 
   filter(stay_id %in% aki_epi$STAY_ID) %>%
+  filter(weight_admit <= 300,
+         weight_admit >= 25) %>%
   nrow()
 ```
+
 
 ## Inclusion/Exclusion Flowchart 
 
@@ -780,6 +822,7 @@ t1a <- table_1 %>%
     creat_first,
     creat_peak_72,
     creat_last,
+    kdigo_cr_max,
     hospital_days,
     icu_days,
     rrt_binary,
@@ -814,7 +857,8 @@ t1a <- table_1 %>%
       apsiii ~ "APS-III Score at ICU Admission",
       creat_first ~ "First Creatinine in ICU, mg/dL",
       creat_peak_72 ~ "Peak Creatinine at first days, mg/dL",
-      creat_last ~ "Hospital Discharge Creatinine, mg/dL",
+      creat_last ~ "ICU Discharge Creatinine, mg/dL",
+      kdigo_cr_max ~ "Peak KDIGO-Cr at first days",
       race ~ "Ethnicity",
       icu_days ~ "Time in ICU, days",
       hospital_days ~ "Time in hospital, days",
@@ -863,6 +907,77 @@ tbl_stack(
   as_gt() %>%
   tab_source_note(source_note = "The variables age at hospital admission, gender, CCI, CKD, ethnicity, time in hospital, and mortality are measured for each hospital admission and might be counted for more than one ICU stay. All other variables are measured individually for each ICU stay. The variables average collection times, average rates, and average rate to weight are only presented for ICU stays with at least two UO measurements for the same compartment, and the latter also required weight at admission. AKI variables were presented for ICU stays with at least one hour with a non-null KDIGO-UO stage. The variables average AKI duration and total time in AKI were specifically reported for ICU stays with at least one AKI event.") %>%
   tab_source_note(source_note = "AKI: Acute Kidney Injury; CCI: Charlson Comorbidity Index; CKD Stage 1-4: Chronic Kidney Disease excluding end-stage-renal-disease; ICU: Intensive Care Unit; KDIGO: Kidney Disease: Improving Global Outcomes; SOFA: Sequential Organ Failure Assessment; UO: Urine Output.")
+```
+
+\ 
+
+## Age
+
+```{r}
+mimic_Sage_a <- table_1 %>%
+  dplyr::summarise(N = n(),
+                   Mean = round(mean(admission_age),2),
+                   SD = round(sd(admission_age),2),
+                   '5th' = round(quantile(admission_age, 0.05),2),
+                   '10th' = round(quantile(admission_age, 0.1),2),
+                   '25th' = round(quantile(admission_age, 0.25),2),
+                   '50th' = round(quantile(admission_age, 0.50),2),
+                   '75th' = round(quantile(admission_age, 0.75),2),
+                   '95th' = round(quantile(admission_age, 0.95),2),
+                   Min = round(min(admission_age),2),
+                   Max = round(max(admission_age),2)
+  ) %>% gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 2)
+mimic_Sage_a
+```
+
+```{r}
+mimic_Sage_b <- ggplot() + 
+  geom_histogram(aes(x = admission_age
+                     ), data=table_1, binwidth = 1) + 
+  labs(
+        x = "Age (years)",
+        y = "Frequency"
+      )
+
+mimic_Sage_b
+```
+
+\ 
+
+## Weight
+
+```{r}
+mimic_Sweight_a <- table_1 %>%
+  drop_na(weight_admit) %>%
+  dplyr::summarise(N = n(),
+                   Mean = round(mean(weight_admit),2),
+                   SD = round(sd(weight_admit),2),
+                   '5th' = round(quantile(weight_admit, 0.05),2),
+                   '10th' = round(quantile(weight_admit, 0.1),2),
+                   '25th' = round(quantile(weight_admit, 0.25),2),
+                   '50th' = round(quantile(weight_admit, 0.50),2),
+                   '75th' = round(quantile(weight_admit, 0.75),2),
+                   '95th' = round(quantile(weight_admit, 0.95),2),
+                   Min = round(min(weight_admit),2),
+                   Max = round(max(weight_admit),2)
+  ) %>% gt() %>%
+  fmt_number(use_seps = TRUE, decimals = 2)
+mimic_Sweight_a
+```
+
+```{r}
+mimic_Sweight_b <- ggplot() + 
+  geom_histogram(aes(x = weight_admit
+                     ), data=table_1, binwidth = 5) + 
+  labs(
+        # title = "Hourly-Adjusted UO per Kilogram",
+        x = "Weight (kg)",
+        y = "Frequency"
+      ) +
+  xlim(0, 300)
+
+mimic_Sweight_b
 ```
 
 \ 
@@ -1483,6 +1598,8 @@ mean(adj_uo_diff$no_diff)
 
 ```{r}
 S9_c <- uo_ml_kg_hr %>%
+  filter(WEIGHT_ADMIT <= 300,
+         WEIGHT_ADMIT >= 25) %>%
   dplyr::summarise(N = n(),
                    Mean = round(mean(ML_KG_HR),2),
                    SD = round(sd(ML_KG_HR),2),
@@ -1494,7 +1611,8 @@ S9_c <- uo_ml_kg_hr %>%
                    '95th' = round(quantile(ML_KG_HR, 0.95),2),
                    Min = round(min(ML_KG_HR),2),
                    Max = round(max(ML_KG_HR),2)
-  ) %>% gt() %>%
+  ) %>% 
+  gt() %>%
   fmt_number(use_seps = TRUE, decimals = 2)
 
 S9_c
@@ -1507,7 +1625,10 @@ S9_d <- ggplot() +
   xlim(0, 2) + 
   geom_histogram(aes(x = ML_KG_HR
                      # , y =..density..
-                     ), data=uo_ml_kg_hr, binwidth = 0.02) + 
+                     ), data=(uo_ml_kg_hr %>%
+                                filter(WEIGHT_ADMIT <= 300,
+                                       WEIGHT_ADMIT >= 25)), 
+                 binwidth = 0.02) + 
   # stat_function(fun = dlnorm, args = list(meanlog = mean_log, sdlog = sd_log, log = FALSE), size=1, color='gray') +
   labs(
         # title = "Hourly-Adjusted UO per Kilogram",
@@ -1596,7 +1717,9 @@ mimic_kdigo_inter_cons_mean <- akis_all_long %>%
     sapsii,
     apsiii,
     creat_first,
+    creat_peak_72,
     creat_last,
+    kdigo_cr_max,
   # scr_baseline,
     hospital_days,
     icu_days,
@@ -1613,11 +1736,13 @@ mimic_kdigo_inter_cons_mean <- akis_all_long %>%
       c(admission_age,
         weight_admit,
         creat_first,
+        creat_peak_72,
         creat_last) ~ "continuous"
     ),
     statistic = c(admission_age,
                   weight_admit,
                   creat_first,
+                  creat_peak_72,
                   creat_last) ~ "{mean} ({sd})",
     missing = "no",
     label = list(
@@ -1628,8 +1753,10 @@ mimic_kdigo_inter_cons_mean <- akis_all_long %>%
       sofa_first_day ~ "SOFA Score at ICU Admission",
       ckd ~ "CKD, Stage 1-4",
       apsiii ~ "APS-III Score at ICU Admission",
-      creat_first ~ "First Creatinine, mg/dL",
-      creat_last ~ "Hospital Discharge Creatinine, mg/dL",
+      creat_first ~ "First Creatinine in ICU, mg/dL",
+      creat_peak_72 ~ "Peak Creatinine at first days, mg/dL",
+      creat_last ~ "ICU Discharge Creatinine, mg/dL",
+      kdigo_cr_max ~ "Peak KDIGO-Cr at first days",
       race ~ "Ethnicity",
       icu_days ~ "Time in ICU, days",
       hospital_days ~ "Time in hospital, days",
@@ -1677,7 +1804,9 @@ mimic_kdigo_inter_mean_old <- akis_all_long %>%
     sapsii,
     apsiii,
     creat_first,
+    creat_peak_72,
     creat_last,
+    kdigo_cr_max,
   # scr_baseline,
     hospital_days,
     icu_days,
@@ -1694,11 +1823,13 @@ mimic_kdigo_inter_mean_old <- akis_all_long %>%
       c(admission_age,
         weight_admit,
         creat_first,
+        creat_peak_72,
         creat_last) ~ "continuous"
     ),
     statistic = c(admission_age,
                   weight_admit,
                   creat_first,
+                  creat_peak_72,
                   creat_last) ~ "{mean} ({sd})",
     missing = "no",
     label = list(
@@ -1709,8 +1840,10 @@ mimic_kdigo_inter_mean_old <- akis_all_long %>%
       sofa_first_day ~ "SOFA Score at ICU Admission",
       ckd ~ "CKD, Stage 1-4",
       apsiii ~ "APS-III Score at ICU Admission",
-      creat_first ~ "First Creatinine, mg/dL",
-      creat_last ~ "Hospital Discharge Creatinine, mg/dL",
+      creat_first ~ "First Creatinine in ICU, mg/dL",
+      creat_peak_72 ~ "Peak Creatinine at first days, mg/dL",
+      creat_last ~ "ICU Discharge Creatinine, mg/dL",
+      kdigo_cr_max ~ "Peak KDIGO-Cr at first days",
       race ~ "Ethnicity",
       icu_days ~ "Time in ICU, days",
       hospital_days ~ "Time in hospital, days",
@@ -1758,7 +1891,9 @@ mimic_kdigo_inter_cons_old <- akis_all_long %>%
     sapsii,
     apsiii,
     creat_first,
+    creat_peak_72,
     creat_last,
+    kdigo_cr_max,
   # scr_baseline,
     hospital_days,
     icu_days,
@@ -1775,11 +1910,13 @@ mimic_kdigo_inter_cons_old <- akis_all_long %>%
       c(admission_age,
         weight_admit,
         creat_first,
+        creat_peak_72,
         creat_last) ~ "continuous"
     ),
     statistic = c(admission_age,
                   weight_admit,
                   creat_first,
+                  creat_peak_72,
                   creat_last) ~ "{mean} ({sd})",
     missing = "no",
     label = list(
@@ -1790,8 +1927,10 @@ mimic_kdigo_inter_cons_old <- akis_all_long %>%
       sofa_first_day ~ "SOFA Score at ICU Admission",
       ckd ~ "CKD, Stage 1-4",
       apsiii ~ "APS-III Score at ICU Admission",
-      creat_first ~ "First Creatinine, mg/dL",
-      creat_last ~ "Hospital Discharge Creatinine, mg/dL",
+      creat_first ~ "First Creatinine in ICU, mg/dL",
+      creat_peak_72 ~ "Peak Creatinine at first days, mg/dL",
+      creat_last ~ "ICU Discharge Creatinine, mg/dL",
+      kdigo_cr_max ~ "Peak KDIGO-Cr at first days",
       race ~ "Ethnicity",
       icu_days ~ "Time in ICU, days",
       hospital_days ~ "Time in hospital, days",
@@ -2054,43 +2193,6 @@ rr_table_data_m1_adj1 <- mrg_efct_m1_adj1 %>%
     )
   )
 
-m1_adj2 <- glm(
-  mortality_30 ~ stage_newcons * (
-    admission_age + gender + weight_admit + apsiii + first_stage
-  ),
-  family = binomial,
-  data = (
-    akis_all_long_complete %>%
-      filter(group == "newcons") %>%
-      mutate(stage_newcons = as.factor(max_stage))
-  )
-)
-
-mrg_efct_m1_adj2 <- avg_comparisons(
-  m1_adj2,
-  variables = "stage_newcons",
-  comparison = "lnoravg",
-  transform = exp
-)
-
-rr_table_data_m1_adj2 <- mrg_efct_m1_adj2 %>%
-    transmute(
-      group = "newcons",
-      max_stage = as.factor(dplyr::row_number()),
-      estimate = paste0(round(estimate, 2), " (",round(conf.low, 2), "-", round(conf.high, 2), ")"),
-      p.value
-    ) %>% add_row(group = "newcons", max_stage = "0", .before = 0) %>%
-    transmute(
-    group,
-    max_stage,
-    or.adj2 = if_else(is.na(estimate), "1 [Reference]", estimate),
-    p.adj2 = case_when(
-      is.na(p.value) ~ "NA",
-      p.value < 0.001 ~ "<.001",
-      .default = as.character(round(p.value, 2))
-    )
-  )
-
 m2_adj1 <- glm(
   mortality_30 ~ stage_newmean * (
     admission_age + weight_admit + gender + first_stage
@@ -2122,43 +2224,6 @@ rr_table_data_m2_adj1 <- mrg_efct_m2_adj1 %>%
     max_stage,
     or.adj1 = if_else(is.na(estimate), "1 [Reference]", estimate),
     p.adj1 = case_when(
-      is.na(p.value) ~ "NA",
-      p.value < 0.001 ~ "<.001",
-      .default = as.character(round(p.value, 2))
-    )
-  )
-
-m2_adj2 <- glm(
-  mortality_30 ~ stage_newmean * (
-    admission_age + gender + weight_admit + apsiii + first_stage
-  ),
-  family = binomial,
-  data = (
-    akis_all_long_complete %>%
-      filter(group == "newmean") %>%
-      mutate(stage_newmean = as.factor(max_stage))
-  )
-)
-
-mrg_efct_m2_adj2 <- avg_comparisons(
-  m2_adj2,
-  variables = "stage_newmean",
-  comparison = "lnoravg",
-  transform = exp
-)
-
-rr_table_data_m2_adj2 <- mrg_efct_m2_adj2 %>%
-    transmute(
-      group = "newmean",
-      max_stage = as.factor(dplyr::row_number()),
-      estimate = paste0(round(estimate, 2), " (",round(conf.low, 2), "-", round(conf.high, 2), ")"),
-      p.value
-    ) %>% add_row(group = "newmean", max_stage = "0", .before = 0) %>%
-    transmute(
-    group,
-    max_stage,
-    or.adj2 = if_else(is.na(estimate), "1 [Reference]", estimate),
-    p.adj2 = case_when(
       is.na(p.value) ~ "NA",
       p.value < 0.001 ~ "<.001",
       .default = as.character(round(p.value, 2))
@@ -2202,46 +2267,8 @@ rr_table_data_m3_adj1 <- mrg_efct_m3_adj1 %>%
     )
   )
 
-m3_adj2 <- glm(
-  mortality_30 ~ stage_old * (
-    admission_age + weight_admit + gender + apsiii + first_stage
-  ),
-  family = binomial,
-  data = (
-    akis_all_long_complete %>%
-      filter(group == "old") %>%
-      mutate(stage_old = as.factor(max_stage))
-  )
-)
-
-mrg_efct_m3_adj2 <- avg_comparisons(
-  m3_adj2,
-  variables = "stage_old",
-  comparison = "lnoravg",
-  transform = exp
-)
-
-rr_table_data_m3_adj2 <- mrg_efct_m3_adj2 %>%
-    transmute(
-      group = "old",
-      max_stage = as.factor(dplyr::row_number()),
-      estimate = paste0(round(estimate, 2), " (",round(conf.low, 2), "-", round(conf.high, 2), ")"),
-      p.value
-    ) %>% add_row(group = "old", max_stage = "0", .before = 0) %>%
-    transmute(
-    group,
-    max_stage,
-    or.adj2 = if_else(is.na(estimate), "1 [Reference]", estimate),
-    p.adj2 = case_when(
-      is.na(p.value) ~ "NA",
-      p.value < 0.001 ~ "<.001",
-      .default = as.character(round(p.value, 2))
-    )
-  )
-
 mimic_kdigo_inter_survival_table_adj <- rr_table_data %>% 
   left_join(bind_rows(rr_table_data_m1_adj1, rr_table_data_m2_adj1, rr_table_data_m3_adj1)) %>%
-  left_join(bind_rows(rr_table_data_m1_adj2, rr_table_data_m2_adj2, rr_table_data_m3_adj2)) %>%
   mutate(
     group = case_when(
       group == "newcons" ~ 'UO-Consecutive',
@@ -2256,24 +2283,26 @@ mimic_kdigo_inter_survival_table_adj <- rr_table_data %>%
   ) %>%
   cols_label(
     or.adj1 = "OR (95% CI)",
-    or.adj2 = "OR (95% CI)",
     p.adj1 = "P value",
-    p.adj2 = "P value",
   ) %>%
   tab_stubhead(label = "Criteria / Stage") %>%
   tab_spanner(label = "Unadjusted OR", columns = c("OR (95% CI)", "P value")) %>%
-  tab_spanner(label = "Adjusted Model 1", columns = c(or.adj1, p.adj1), id = "adj1") %>%
-  tab_spanner(label = "Adjusted Model 2", columns = c(or.adj2, p.adj2), id = "adj2") %>%
+  tab_spanner(label = "Adjusted Model", columns = c(or.adj1, p.adj1), id = "adj1") %>%
   tab_footnote(
     footnote = "Model include age, weight, gender and whether diagnosed on admission",
     locations = cells_column_spanners(spanners = "adj1")
-  ) %>%
-  tab_footnote(
-    footnote = "Model include model 1, CCI score and APS-III score at ICU admission",
-    locations = cells_column_spanners(spanners = "adj2")
-  )
+  ) %>% tab_source_note(source_note = md(
+    "All covariates in the adjusted model were significant except for diagnosis at admission for block summation model."
+  ))
 
 mimic_kdigo_inter_survival_table_adj
+```
+
+summaries for all tables:
+```{r}
+summary(m1_adj1)
+summary(m2_adj1)
+summary(m3_adj1)
 ```
 
 
@@ -2356,7 +2385,9 @@ dbSendQuery(con, statement = read_file('sql/validate cutoff/c_hourly_uo_9920_tem
 dbSendQuery(con, statement = read_file('sql/validate cutoff/d1_kdigo_uo_9920_temp.sql'))
 dbSendQuery(con, statement = read_file('sql/validate cutoff/d3_kdigo_stages_9920_temp.sql'))
 
-validity_threshold_wide <- dbGetQuery(con, statement = read_file('sql/validity trashold.sql'))
+validity_threshold_wide <- dbGetQuery(con, statement = read_file('sql/validity trashold.sql')) %>%
+    filter(WEIGHT_ADMIT <= 300,
+           WEIGHT_ADMIT >= 25)
 
 dbSendQuery(con, "DROP TABLE IF EXISTS`mimic_uo_and_aki.b_uo_rate_temp`")
 
@@ -2453,7 +2484,9 @@ mimic_exclusion_threshold <- validity_threshold_long %>%
     sapsii,
     apsiii,
     creat_first,
+    creat_peak_72,
     creat_last,
+    kdigo_cr_max,
   # scr_baseline,
     hospital_days,
     icu_days,
@@ -2470,11 +2503,13 @@ mimic_exclusion_threshold <- validity_threshold_long %>%
       c(admission_age,
         weight_admit,
         creat_first,
+        creat_peak_72,
         creat_last) ~ "continuous"
     ),
     statistic = c(admission_age,
                   weight_admit,
                   creat_first,
+                  creat_peak_72,
                   creat_last) ~ "{mean} ({sd})",
     missing = "no",
     label = list(
@@ -2485,8 +2520,10 @@ mimic_exclusion_threshold <- validity_threshold_long %>%
       sofa_first_day ~ "SOFA Score at ICU Admission",
       ckd ~ "CKD, Stage 1-4",
       apsiii ~ "APS-III Score at ICU Admission",
-      creat_first ~ "First Creatinine, mg/dL",
-      creat_last ~ "Hospital Discharge Creatinine, mg/dL",
+      creat_first ~ "First Creatinine in ICU, mg/dL",
+      creat_peak_72 ~ "Peak Creatinine at first days, mg/dL",
+      creat_last ~ "ICU Discharge Creatinine, mg/dL",
+      kdigo_cr_max ~ "Peak KDIGO-Cr at first days",
       race ~ "Ethnicity",
       icu_days ~ "Time in ICU, days",
       hospital_days ~ "Time in hospital, days",
@@ -2604,6 +2641,7 @@ table_1_staging <- table1_akis %>%
     creat_first,
     creat_peak_72,
     creat_last,
+    kdigo_cr_max,
     hospital_days,
     icu_days,
     rrt_binary,
@@ -2649,9 +2687,10 @@ table_1_staging <- table1_akis %>%
       sofa_first_day ~ "SOFA Score at ICU Admission",
       ckd ~ "CKD, Stage 1-4",
       apsiii ~ "APS-III Score at ICU Admission",
-      creat_first ~ "First Creatinine, mg/dL",
+      creat_first ~ "First Creatinine in ICU, mg/dL",
       creat_peak_72 ~ "Peak Creatinine at first days, mg/dL",
-      creat_last ~ "Hospital Discharge Creatinine, mg/dL",
+      creat_last ~ "ICU Discharge Creatinine, mg/dL",
+      kdigo_cr_max ~ "Peak KDIGO-Cr at first days",
       race ~ "Ethnicity",
       icu_days ~ "Time in ICU, days",
       hospital_days ~ "Time in hospital, days",
@@ -2701,6 +2740,187 @@ ggplot(aes(TIME, UO_KG, color=MAX_STAGE_NEW_CONS, fill=MAX_STAGE_NEW_CONS))  +
 mimic_uo_cons_figure
 ```
 
+## Serum Creatinine Analysis
+```{r}
+aki_creat_analysis %>%
+ggplot(aes(x=CREAT_BASLINE_DIFF)) + 
+    xlim(0, 5) + 
+    geom_histogram(binwidth = 0.1)
+```
+
+```{r}
+mimic_creat_a <- aki_creat_analysis %>% 
+  filter(MAX_STAGE_NEW_CONS == 1,
+         AKI_TO_CREAT >= -24,
+         AKI_TO_CREAT <= 48) %>%
+  mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
+                                breaks=12, 
+                                ordered_result = TRUE,
+                                # labels=FALSE
+                                )) %>%
+ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_DIFF)) +
+    geom_boxplot(linetype = "dashed", outlier.shape = NA, color="brown") +
+    stat_boxplot(aes(ymin = ..lower.., ymax = ..upper..), outlier.shape = NA, color="brown", fill="orange") +
+    stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
+    stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
+    stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
+    # scale_x_discrete(labels=c('-24      ','-18      ','-12      ','-6      ','0      ','6      ','12      ','18      ','24      ','30      ','36      ','42      ','48      ')) +
+    labs(x=" ", y = "Difference from basline (mg/dL)") +
+    coord_cartesian(ylim = c(-0.1, 3)) +
+    theme_classic() + # remove panel background and gridlines
+    theme(legend.position = "bottom",
+          plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 10, face = "bold"),
+          # axis.text.x = element_text(margin = margin(t = 2),
+          #                            hjust="1")
+          ) +
+  scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE)]})
+```
+
+```{r}
+mimic_creat_b <- aki_creat_analysis %>% 
+  filter(MAX_STAGE_NEW_CONS == 2,
+         AKI_TO_CREAT >= -24,
+         AKI_TO_CREAT <= 48) %>%
+  mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
+                                breaks=12, 
+                                ordered_result = TRUE,
+                                # labels=FALSE
+                                )) %>%
+ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_DIFF)) +
+    geom_boxplot(linetype = "dashed", outlier.shape = NA, color="brown") +
+    stat_boxplot(aes(ymin = ..lower.., ymax = ..upper..), outlier.shape = NA, color="brown", fill="orange") +
+    stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
+    stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
+    stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
+    # scale_x_discrete(labels=c('-24      ','-18      ','-12      ','-6      ','0      ','6      ','12      ','18      ','24      ','30      ','36      ','42      ','48      ')) +
+    labs(x=" ", y = " ") +
+    coord_cartesian(ylim = c(-0.1, 3)) +
+    theme_classic() + # remove panel background and gridlines
+    theme(legend.position = "bottom",
+          plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 10, face = "bold"),
+          # axis.text.x = element_text(margin = margin(t = 2),
+          #                            hjust="1")
+          ) +
+  scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE)]})
+```
+
+```{r}
+mimic_creat_c <- aki_creat_analysis %>% 
+  filter(MAX_STAGE_NEW_CONS == 3,
+         AKI_TO_CREAT >= -24,
+         AKI_TO_CREAT <= 48) %>%
+  mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
+                                breaks=12, 
+                                ordered_result = TRUE,
+                                # labels=FALSE
+                                )) %>%
+ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_DIFF)) +
+    geom_boxplot(linetype = "dashed", outlier.shape = NA, color="brown") +
+    stat_boxplot(aes(ymin = ..lower.., ymax = ..upper..), outlier.shape = NA, color="brown", fill="orange") +
+    stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
+    stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
+    stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
+    # scale_x_discrete(labels=c('-24      ','-18      ','-12      ','-6      ','0      ','6      ','12      ','18      ','24      ','30      ','36      ','42      ','48      ')) +
+    labs(x=" ", y = " ") +
+    coord_cartesian(ylim = c(-0.1, 3)) +
+    theme_classic() + # remove panel background and gridlines
+    theme(legend.position = "bottom",
+          plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 10, face = "bold"),
+          # axis.text.x = element_text(margin = margin(t = 2),
+          #                            hjust="1")
+          ) +
+  scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE)]})
+```
+
+```{r}
+mimic_creat_d <- aki_creat_analysis %>% 
+  filter(MAX_STAGE_NEW_CONS == 1,
+         AKI_TO_CREAT >= -24,
+         AKI_TO_CREAT <= 48) %>%
+  mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
+                                breaks=12, 
+                                ordered_result = TRUE)) %>%
+ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_RATIO)) +
+    geom_boxplot(linetype = "dashed", outlier.shape = NA, color="brown") +
+    stat_boxplot(aes(ymin = ..lower.., ymax = ..upper..), outlier.shape = NA, color="brown", fill="orange") +
+    stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
+    stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
+    stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
+    labs(x=" ", y = "Relative sCr change") +
+    coord_cartesian(ylim = c(1.01, 3)) +
+    theme_classic() + # remove panel background and gridlines
+    theme(legend.position = "bottom",
+          plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 10, face = "bold")) +
+  scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE)]})
+```
+
+```{r}
+mimic_creat_e <- aki_creat_analysis %>% 
+  filter(MAX_STAGE_NEW_CONS == 2,
+         AKI_TO_CREAT >= -24,
+         AKI_TO_CREAT <= 48) %>%
+  mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
+                                breaks=12, 
+                                ordered_result = TRUE)) %>%
+ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_RATIO)) +
+    geom_boxplot(linetype = "dashed", outlier.shape = NA, color="brown") +
+    stat_boxplot(aes(ymin = ..lower.., ymax = ..upper..), outlier.shape = NA, color="brown", fill="orange") +
+    stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
+    stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
+    stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
+    labs(x="Time to AKI start (hours)", y = " ") +
+    coord_cartesian(ylim = c(1.01, 3)) +
+    theme_classic() + # remove panel background and gridlines
+    theme(legend.position = "bottom",
+          plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 10, face = "bold")) +
+  scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE)]})
+```
+
+```{r}
+mimic_creat_f <- aki_creat_analysis %>% 
+  filter(MAX_STAGE_NEW_CONS == 3,
+         AKI_TO_CREAT >= -24,
+         AKI_TO_CREAT <= 48) %>%
+  mutate(AKI_TO_CREAT_BIN = cut(AKI_TO_CREAT, 
+                                breaks=12, 
+                                ordered_result = TRUE)) %>%
+ggplot(aes(factor(AKI_TO_CREAT_BIN), CREAT_LOWEST7_RATIO)) +
+    geom_boxplot(linetype = "dashed", outlier.shape = NA, color="brown") +
+    stat_boxplot(aes(ymin = ..lower.., ymax = ..upper..), outlier.shape = NA, color="brown", fill="orange") +
+    stat_boxplot(geom = "errorbar", aes(ymin = ..ymax..), color="brown") +
+    stat_boxplot(geom = "errorbar", aes(ymax = ..ymin..), color="brown") +
+    stat_summary(fun.y=mean, colour="darkred", geom="point", hape=18, size=2,show_guide = FALSE) +
+    labs(x=" ", y = " ") +
+    coord_cartesian(ylim = c(1.01, 3)) +
+    theme_classic() + # remove panel background and gridlines
+    theme(legend.position = "bottom",
+          plot.title = element_text(color = "#0099F8", size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 10, face = "bold")) +
+  scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE)]})
+```
+
+```{r}
+ggarrange(
+  mimic_creat_a,
+  mimic_creat_b,
+  mimic_creat_c,
+  mimic_creat_d,
+  mimic_creat_e,
+  mimic_creat_f,
+  labels = c("a", "b", "c", "d", "e", "f"),
+  ncol = 3,
+  nrow = 2,
+  heights = c(1,1),
+  legend = "bottom",
+  common.legend = TRUE
+)
+```
+
 
 ## Survival Analysis
 ```{r}
@@ -2709,7 +2929,7 @@ km_fit <- survfit2(Surv(FOLLOWUP_DAYS, DEATH_FLAG) ~ MAX_STAGE_NEW_CONS, data = 
 mimic_survival_cons_figure <- km_fit %>%
 ggsurvfit(linewidth = 1) +
   scale_ggsurvfit(x_scales = list(breaks = seq(0, 30, by = 5))) +
-  coord_cartesian(xlim = c(-1, 35)) +
+  coord_cartesian(xlim = c(-1, 31)) +
   theme_classic() +
   labs(x="Days", y = "Survival", 
        color='Maximum KDIGO-UO stage', fill='Maximum KDIGO-UO stage') +
@@ -2829,6 +3049,10 @@ save(
   mimic_kdigo_inter_survival_table,
   mimic_kdigo_inter_survival_table_adj,
   mimic_kdigo_inter_survival_figure,
+  mimic_Sage_a,
+  mimic_Sage_b,
+  mimic_Sweight_a,
+  mimic_Sweight_b,
   file = "s_data.Rda"
 )
 ```

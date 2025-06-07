@@ -1,5 +1,5 @@
 # Name: Ariel A Hasidim
-# Title: R workflow for the creation of hourly-adjusted UO and AKI events tables.
+# Title: R workflow for the creation of hourly-adjusted UO and KGIDO stages tables.
 # Date: 06-May-2023
 
 ############################################################

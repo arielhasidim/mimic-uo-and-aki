@@ -20,6 +20,7 @@ WITH
   -- select eligible ICU stays
 SELECT
   a.STAY_ID,
+  a.WEIGHT_ADMIT,
   c.FIRST_STAGE_UO_CONS AS FIRST_STAGE_NEW_CONS,
   c.AKI_STAGE_UO_CONS AS MAX_STAGE_NEW_CONS,
   d3.FIRST_STAGE_UO_CONS AS FIRST_STAGE_NEW_CONS_95_20,
@@ -32,26 +33,30 @@ FROM
   (
     SELECT
       ARRAY_AGG(
-        STAY_ID
+        a.STAY_ID
         ORDER BY
-          INTIME ASC
+          a.INTIME ASC
         LIMIT
           1
       ) [OFFSET(0)] STAY_ID,
       ARRAY_AGG(
-        HADM_ID
+        a.HADM_ID
         ORDER BY
-          INTIME ASC
+          a.INTIME ASC
         LIMIT
           1
       ) [OFFSET(0)] HADM_ID,
-      SUBJECT_ID,
-      INTIME
+      a.SUBJECT_ID,
+      a.INTIME,
+      IFNULL(w.WEIGHT_ADMIT, w.WEIGHT) WEIGHT_ADMIT
     FROM
-      `physionet-data.mimiciv_icu.icustays`
+      `physionet-data.mimiciv_icu.icustays` a
+      LEFT JOIN `physionet-data.mimiciv_derived.first_day_weight` w ON w.STAY_ID = a.STAY_ID
     GROUP BY
       SUBJECT_ID,
-      INTIME
+      INTIME,
+      w.WEIGHT_ADMIT,
+      w.WEIGHT
   ) a
   LEFT JOIN `physionet-data.mimiciv_hosp.patients` b ON b.SUBJECT_ID = a.SUBJECT_ID
   LEFT JOIN (

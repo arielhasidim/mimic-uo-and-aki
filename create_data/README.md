@@ -1,6 +1,6 @@
-# Creation of UO and AKI tables
+# Creation of UO and KDIGO stages tables
 
-The code above is used to create hourly-adjusted UO tables for each ICU stay in the MIMIC-IV database, as well as to identify the onset and resolution of AKI events. These tables are meant to provide a reliable platform for future research to anyone who wishes to use them. To achieve this objective, it is necessary to run several SQL queries in a particular order. Additionally, we have included a coded workflow in R that can automatically run these queries. 
+The code above is used to create hourly-adjusted UO and KDIGO staging tables for each ICU stay in the MIMIC-IV database. These tables are meant to provide a reliable platform for future research to anyone who wishes to use them. To achieve this objective, it is necessary to run several SQL queries in a particular order. Additionally, we have included a coded workflow in R that can automatically run these queries. 
 
 ## Instructions
 
