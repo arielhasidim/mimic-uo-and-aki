@@ -46,4 +46,19 @@ After creating all the tables and reproducing the associated study, you should e
 
 ## Citation
 
-Hasidim, A.A., Klein, M.A., Ben Shitrit, I. et al. Toward the standardization of big datasets of urine output for AKI analysis: a multicenter validation study. Sci Rep 15, 20009 (2025). https://doi.org/10.1038/s41598-025-95535-4
+If you use this repository, please cite:
+
+> Hasidim, A.A., Klein, M.A., Ben Shitrit, I. et al. *Toward the standardization of big datasets of urine output for AKI analysis: a multicenter validation study.* **Sci Rep** 15, 20009 (2025). https://doi.org/10.1038/s41598-025-95535-4
+
+```bibtex
+@article{Hasidim2025,
+  author  = {Hasidim, Ariel Avraham and Klein, Matthew Adam and Ben Shitrit, Itamar and Einav, Sharon and Ilan, Karny and Fuchs, Lior},
+  title   = {Toward the standardization of big datasets of urine output for AKI analysis: a multicenter validation study},
+  journal = {Scientific Reports},
+  year    = {2025},
+  volume  = {15},
+  number  = {1},
+  pages   = {20009},
+  doi     = {10.1038/s41598-025-95535-4},
+  url     = {https://doi.org/10.1038/s41598-025-95535-4}
+}
