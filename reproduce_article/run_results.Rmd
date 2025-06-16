@@ -152,15 +152,13 @@ anchor_year <- dbGetQuery(con, statement = read_file('sql/anchor year.sql'))
 ```
 \ 
 
-This is a full reproduction for the results of the derivation cohort (MIMICdb).
+This is a full reproduction for the results of the derivation cohort (MIMICdb) using MIMIC-IV v2.2 and MIMIC Code v2.4.0
 
 \ 
 
 ### Citation
 
-.............
-
-.............
+> Hasidim, A.A., Klein, M.A., Ben Shitrit, I. et al. *Toward the standardization of big datasets of urine output for AKI analysis: a multicenter validation study.* **Sci Rep** 15, 20009 (2025). https://doi.org/10.1038/s41598-025-95535-4
 
 ------------------------------------------------------------------------
 
